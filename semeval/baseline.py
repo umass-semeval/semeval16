@@ -46,7 +46,7 @@ def accuracy(tweets, prediction, classes, extra="", verbose=False):
 
 
 def run_baseline(full_tweets):
-	train,test = utils.split(full_tweets)
+	train,test = utils.split_data(full_tweets)
 	classes, cmap = classmap(train)
 	count_vec = CountVectorizer()
 	tt = TfidfTransformer()	
