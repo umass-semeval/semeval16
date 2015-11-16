@@ -1,2 +1,0 @@
-require 'torch'
-require 'nn'
