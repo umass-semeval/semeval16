@@ -32,49 +32,99 @@ class HiddenLayer(object):
         )
         self.params = [self.W, self.b]
 
+        self.num_in = n_in
+        self.num_out = n_out
+
 
 class MLP(object):
-    def __init__(self, rng, input, n_in, n_hidden, n_out):
-        self.hidden_layer = HiddenLayer(rng=rng, input=input, n_in=n_in, n_out=n_hidden, activation=T.tanh)
-        self.log_regression_layer = LogisticRegression(input=self.hidden_layer.output, n_in=n_hidden, n_out=n_out)
-        self.L1 = (abs(self.hidden_layer.W).sum() + abs(self.log_regression_layer.W).sum())
-        self.L2_sqr = ((self.hidden_layer.W ** 2).sum() + (self.log_regression_layer.W ** 2).sum())
-        self.nll = self.log_regression_layer.nll
-        self.errors = self.log_regression_layer.errors
-        self.make_shared_dataset = self.log_regression_layer.make_shared_dataset
-        self.params = self.hidden_layer.params + self.log_regression_layer.params
+    def __init__(self, rng, input, n_in, n_out, n_layers, units):
+        #  build and connect each hidden layer
+        assert n_layers == len(units)
+        self.hidden_layers = []
+        self.hidden_layers.append(HiddenLayer(rng=rng, input=input, n_in=n_in, n_out=units[0], activation=T.tanh))
+        i = 1
+        while i < n_layers:
+            prev_layer = self.hidden_layers[-1]
+            layer = HiddenLayer(rng=rng, input=prev_layer.output, n_in=units[i-1], n_out=units[i], activation=T.tanh)
+            self.hidden_layers.append(layer)
+            i += 1
+
+        # logistic regression layer for classification
+        self.softmax_layer = LogisticRegression(input=self.hidden_layers[-1].output, n_in=units[-1], n_out=n_out)
+
+        self.L1 = sum([abs(self.hidden_layers[i].W).sum() for i in xrange(n_layers)]) + abs(self.softmax_layer.W).sum()
+        self.L2_sqr = sum([(self.hidden_layers[i].W ** 2).sum() for i in xrange(n_layers)]) + \
+                      (self.softmax_layer.W ** 2).sum()
+        self.nll = self.softmax_layer.nll
+        self.errors = self.softmax_layer.errors
+        self.make_shared_dataset = self.softmax_layer.make_shared_dataset
+
+        self.params = self.hidden_layers[0].params
+        for i in xrange(1, n_layers):
+            self.params += self.hidden_layers[i].params
+        self.params += self.softmax_layer.params
+
         self.input = input
-        self.ypred = self.log_regression_layer.ypred
+        self.ypred = self.softmax_layer.ypred
 
 
-def train_mlp(train_x, train_y, dev_x, dev_y, nclasses,
-              learning_rate=0.01, L1_reg=0.00, L2_reg=0.0001,
-              nepochs=100, batch_size=10, n_hidden=100):
-
-    ndims = train_x.shape[1]
-    print("ndims: %d, nclasses: %d" % (ndims, nclasses))
-
-    n_train_batches = train_x.shape[0] / batch_size
-    print("n train batches: %d" % n_train_batches)
-    n_dev_batches = dev_x.shape[0] / batch_size
-
+def build_mlp(ndims, nclasses, nlayers, L1_reg, L2_reg, units):
     print('building model')
     index = T.lscalar()  # index to a minibatch
     x = T.matrix('x')
     y = T.ivector('y')
     rng = np.random.RandomState(1234)
+    classifier = MLP(
+        rng=rng,
+        input=x,
+        n_in=ndims,
+        n_out=nclasses,
+        n_layers=nlayers,
+        units=units
+    )
+    cost = (
+        classifier.nll(y) + L1_reg*classifier.L1 + L2_reg*classifier.L2_sqr
+    )
+    print("classifier with %d hidden layers" % len(classifier.hidden_layers))
+    return classifier, cost, index, x, y
 
-    classifier = MLP(rng=rng, input=x, n_in=ndims, n_hidden=n_hidden, n_out=nclasses)
+
+def train_mlp(train, dev, test, nclasses,
+              learning_rate=0.01, L1_reg=0.00, L2_reg=0.0001,
+              nlayers=2, units=[800, 400],
+              nepochs=100, batch_size=10):
+
+    train_x, train_y = train
+    dev_x, dev_y = dev
+    test_x, test_y = test
+
+    ndims = train_x.shape[1]
+    print("ndims: %d, nclasses: %d" % (ndims, nclasses))
+
+    classifier, cost, index, x, y = build_mlp(ndims, nclasses, nlayers, L1_reg, L2_reg, units)
 
     train_x, train_y = classifier.make_shared_dataset(train_x, train_y)
-
-    dev_x_orig = dev_x[:]
-    dev_y_orig = dev_y[:]
-
     dev_x, dev_y = classifier.make_shared_dataset(dev_x, dev_y)
+    test_x, test_y = classifier.make_shared_dataset(test_x, test_y)
 
-    cost = classifier.nll(y) + L1_reg*classifier.L1 + L2_reg*classifier.L2_sqr
+    n_train_batches = train_x.get_value(borrow=True).shape[0] / batch_size
+    print("n train batches: %d" % n_train_batches)
+    n_dev_batches = dev_x.get_value(borrow=True).shape[0] / batch_size
+    n_test_batches = test_x.get_value(borrow=True).shape[0] / batch_size
+
+    # cost = (
+    #     classifier.nll(y) + L1_reg*classifier.L1 + L2_reg*classifier.L2_sqr
+    # )
+
     test_model = theano.function(
+        inputs=[index],
+        outputs=classifier.errors(y),
+        givens={
+            x: test_x[index * batch_size: (index + 1) * batch_size],
+            y: test_y[index * batch_size: (index + 1) * batch_size]
+        })
+
+    validate_model = theano.function(
         inputs=[index],
         outputs=classifier.errors(y),
         givens={
@@ -82,11 +132,13 @@ def train_mlp(train_x, train_y, dev_x, dev_y, nclasses,
             y: dev_y[index * batch_size: (index+1) * batch_size]
         })
 
+    # # compute gradients, define update
     gparams = [T.grad(cost, param) for param in classifier.params]
     updates = [
         (param, param - learning_rate * gparam) for param, gparam in zip(classifier.params, gparams)
     ]
 
+    # define training procedure
     train_model = theano.function(
         inputs=[index],
         outputs=cost,
@@ -96,48 +148,57 @@ def train_mlp(train_x, train_y, dev_x, dev_y, nclasses,
             y: train_y[index * batch_size: (index + 1) * batch_size],
         })
 
+    """
+    MODEL TRAINING
+    """
     print("training...")
-    patience = 5000
-    patience_incr = 2
-    improve_threshold = 0.995
-    valid_freq = min(n_train_batches, patience / 2)
-    best_valid_loss = np.inf
-    valid_score = -1.0
+    # early stopping params
+    patience = 10000
+    patience_increase = 2
+    improvement_threshold = 0.995
+    validation_frequency = min(n_train_batches, patience / 2)
+
+    best_validation_loss = np.inf
+    test_score = 0.
     start_time = timeit.default_timer()
 
-    done = False
+    done_looping = False
     epoch = 0
-    while epoch < nepochs and not done:
-        epoch = epoch + 1
-        for mbatch_idx in xrange(n_train_batches):
-            mbatch_avg_cost = train_model(mbatch_idx)
-            iter = (epoch - 1) * n_train_batches + mbatch_idx
-            if (iter + 1) % valid_freq == 0:
-                valid_losses = [test_model(i) for i in xrange(n_dev_batches)]
-                this_vloss = np.mean(valid_losses)
-                print('epoch %i, minibatch %i/%i, validation error %f %%' % (epoch, mbatch_idx + 1, n_train_batches, this_vloss * 100.))
-                if this_vloss < best_valid_loss:
-                    if this_vloss < best_valid_loss * improve_threshold:
-                        patience = max(patience, iter * patience_incr)
-                    best_valid_loss = this_vloss
-                    valid_score = this_vloss
-                # TODO the following doesnt work for some reason:
-                # with open('best_model.pkl', 'w') as f:
-                #     cPickle.dump(classifier, f)
-                if patience <= iter:
-                    done = True
-                    break
+    while (epoch < nepochs) and (not done_looping):
+        epoch += 1
+        for batch_idx in xrange(n_train_batches):
+            batch_avg_cost = train_model(batch_idx)
+            iter = (epoch - 1) * n_train_batches + batch_idx
+
+            if (iter + 1) % validation_frequency == 0:
+                dev_losses = [validate_model(i) for i in xrange(n_dev_batches)]
+                this_dev_loss = np.mean(dev_losses)
+                print('epoch %i, batch %i/%i, validation error %f %%' % (epoch, batch_idx + 1, n_train_batches, this_dev_loss*100.))
+                if this_dev_loss < best_validation_loss:
+                    if this_dev_loss < best_validation_loss * improvement_threshold:
+                        patience = max(patience, iter * patience_increase)
+                    best_validation_loss = this_dev_loss
+
+                    test_losses = [test_model(i) for i in xrange(n_test_batches)]
+                    test_score = np.mean(test_losses)
+
+                    print('epoch %i, batch %i/%i, test error of best model %f %%' % (epoch, batch_idx+1, n_train_batches, test_score*100.))
+
+                    # with open('best_model.pkl', 'w') as f:
+                    #     cPickle.dump(classifier, f)
+
+            if patience <= iter:
+                done_looping = True
+                break
 
     end_time = timeit.default_timer()
     print(
-        (
-            'Optimization complete with best validation score of %f %%,'
-            'with test performance %f %%'
-        )
-        % (best_valid_loss * 100., valid_score * 100.)
+        ('optimization complete with best validation score of %f %%,'
+         'with test performance %f %%'
+         ) % (best_validation_loss*100., test_score*100.)
     )
-    print 'The code run for %d epochs, with %f epochs/sec' % (epoch, 1. * epoch / (end_time - start_time))
-    return predict2(classifier, dev_x_orig, dev_y_orig)
+    print('ran for %d epochs, with %f epochs/sec' % (epoch, 1.*epoch/(end_time - start_time)))
+    return classifier
 
 
 def predict2(classifier, test_x, test_y):
@@ -146,13 +207,4 @@ def predict2(classifier, test_x, test_y):
         outputs=classifier.ypred)
     # test_x, test_y = classifier.make_shared_dataset(test_x, test_y)
     pred_values = predict_model(test_x)
-    n = test_x.shape[0]
-    ncorrect = 0.0
-    total = 0.0
-    for i in range(n):
-        pred = pred_values[i]
-        truth = test_y[i]
-        if pred == truth:
-            ncorrect += 1.0
-        total += 1.0
-    return ncorrect, total
+    return pred_values
