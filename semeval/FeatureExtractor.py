@@ -34,6 +34,21 @@ class FeatureExtractor:
                 fv = self.process_BOW(tweet)
             if tid == "word2vec":
                 fv = self.process_word2vec(tweet)
+            if tid == "hand-coded":
+                fv = self.process_hand_coded_features(tweet)
+        return fv
+
+    def process_hand_coded_features(self, tweet):
+        words = self._tokenize(tweet)
+        ncaps = len(filter(lambda w: w.istitle(), words))
+        nwords = self._normalize(words)
+        fv = [0]*200
+        fv[0] = ncaps
+        n = len(nwords)
+        for i in range(1, n):
+            w = nwords[i]
+            if w in self.vocab:
+                fv[i] = self.vocab.index(w)
         return fv
 
     def process_BOW(self, tweet):
@@ -64,6 +79,48 @@ class FeatureExtractor:
             if w in self.word2vec_model.vocab:
                 x += self.word2vec_model[w]
         return x
+
+    def process_word2vec_noagg(self, tweet, window_size):
+        nwords = self._normalize(self._tokenize(tweet))
+        if self.embedding_dim is None:
+            for w in nwords:
+                if w in self.word2vec_model.vocab:
+                    vec = self.word2vec_model[w]
+                    self.embedding_dim = len(vec)
+                    print("set embedding dim to %d" % self.embedding_dim)
+                    break
+        x = []
+        for w in nwords:
+            if w in self.word2vec_model.vocab:
+                x.append(self.word2vec_model[w])
+        n = len(x)
+        if n < window_size:
+            for i in range(window_size - n):
+                x.append(np.zeros(self.embedding_dim))
+            matrix = np.asarray(x)
+            assert matrix.shape[0] == window_size, "shape[0] %d != window size %d" % (matrix.shape[0], window_size)
+            return matrix, None
+        elif n > window_size:
+            x1 = []
+            i = 0
+            while i < window_size:
+                x1.append(x[i])
+                i += 1
+            left = window_size - len(x1)
+            x2 = []
+            while i < left:
+                x2.append(x[i])
+                i += 1
+            if len(x2) < window_size:
+                for i in range(window_size - len(x2)):
+                    x2.append(np.zeros(self.embedding_dim))
+            m1, m2 = np.asarray(x1), np.asarray(x2)
+            assert m1.shape[0] == window_size
+            assert m2.shape[0] == window_size
+            return m1, m2
+        else:
+            return np.asarray(x), None
+
 
     @staticmethod
     def _tokenize(tweet):

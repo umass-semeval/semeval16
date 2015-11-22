@@ -1,3 +1,8 @@
+"""
+TODO: implement eval measures correctly as described in http://alt.qcri.org/semeval2016/task4/data/uploads/eval.pdf
+"""
+
+
 class ConfusionMatrix(object):
 
     def __init__(self, y, ypred, classnames):

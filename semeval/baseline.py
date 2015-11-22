@@ -55,8 +55,7 @@ def accuracy(tweets, prediction, classes, extra="", verbose=False):
 
 def run_naivebayes_baseline(args):
     print(args)
-    train_tweets = load_from_tsv(args.train_file)
-    dev_tweets = load_from_tsv(args.dev_file)
+    train_tweets, dev_tweets, test_tweets = load_datasets(args)
     classes, cmap = classmap(train_tweets)
     count_vec = CountVectorizer()
     tt = TfidfTransformer()
@@ -64,24 +63,30 @@ def run_naivebayes_baseline(args):
     y_train = map(lambda x: cmap[x.label], train_tweets)
     clf = MultinomialNB()
     clf.fit(x_train, y_train)
-    prediction = clf.predict(x_train)
-    accuracy(train_tweets, prediction, classes, extra="train")
+    x_dev = extract_features(dev_tweets, count_vec, tt, True)
+    y_dev = map(lambda x: cmap[x.label], dev_tweets)
     x_test = extract_features(dev_tweets, count_vec, tt, True)
-    test_prediction = clf.predict(x_test)
-    accuracy(dev_tweets, test_prediction, classes, extra="test")
+    y_test = map(lambda x: cmap[x.label], dev_tweets)
+    print("train set performance:")
+    train_pred = clf.predict(x_train)
+    print(evaluate.ConfusionMatrix(y_train, train_pred, classes))
+    print("validation set performance:")
+    dev_ypred = clf.predict(x_dev)
+    print(evaluate.ConfusionMatrix(y_dev, dev_ypred, classes))
+    print("test set performance:")
+    test_ypred = clf.predict(x_test)
+    print(evaluate.ConfusionMatrix(y_test, test_ypred, classes))
 
 
 def run_BOW_baseline(args):
     print(args)
-    train = load_from_tsv(args.train_file)
-    dev = load_from_tsv(args.dev_file)
-    test = load_from_tsv(args.test_file)
-    print("ntrain: %d, ndev: %d, ntest: %d" % (len(train), len(dev), len(test)))
+    train, dev, test = load_datasets(args)
     classnames = list(set(map(lambda tweet: tweet.label, train)))
     train_y = map(lambda tweet: classnames.index(tweet.label), train)
     dev_y = map(lambda tweet: classnames.index(tweet.label), dev)
     test_y = map(lambda tweet: classnames.index(tweet.label), test)
-    fx = FeatureExtractor(["BOW"], stopwords=args.stopwords)
+    # fx = FeatureExtractor(["BOW"], stopwords=args.stopwords)
+    fx = FeatureExtractor(["hand-coded"], stopwords=args.stopwords)
     fx.build_vocab(train)
     train_x = np.asarray(map(lambda tweet: fx.process(tweet), train))
     check = train_x[0]
@@ -109,14 +114,14 @@ def run_BOW_baseline(args):
 
 def run_word2vec_baseline(args):
     print(args)
-    train = load_from_tsv(args.train_file)
-    dev = load_from_tsv(args.dev_file)
-    test = load_from_tsv(args.test_file)
-    print("ntrain: %d, ndev: %d, ntest: %d" % (len(train), len(dev), len(test)))
+    print('subtask id: %s' % args.subtask_id)
+    train, dev, test = load_datasets(args)
+
     classnames = list(set(map(lambda tweet: tweet.label, train)))
     train_y = map(lambda tweet: classnames.index(tweet.label), train)
     dev_y = map(lambda tweet: classnames.index(tweet.label), dev)
     test_y = map(lambda tweet: classnames.index(tweet.label), test)
+
     fx = FeatureExtractor(["word2vec"], word2vec_model=args.word2vec_model)
     fx.build_vocab(train)
     train_x = np.asarray(map(lambda tweet: fx.process(tweet), train))
@@ -124,6 +129,7 @@ def run_word2vec_baseline(args):
     print("sample fv shape: ", check.shape)
     dev_x = np.asarray(map(lambda tweet: fx.process(tweet), dev))
     test_x = np.asarray(map(lambda tweet: fx.process(tweet), test))
+
     nclasses = len(classnames)
     ntrain = train_x.shape[0]
     nbatches = 100
@@ -131,7 +137,9 @@ def run_word2vec_baseline(args):
     train_data = (train_x, train_y)
     dev_data = (dev_x, dev_y)
     test_data = (test_x, test_y)
+
     neural_net.logistic_regression_optimization_sgd(train_data, dev_data, test_data, nclasses, batch_size=batch_size)
+
     print("train set performance:")
     train_ypred = neural_net.predict(train_x, train_y)
     print(evaluate.ConfusionMatrix(train_y, train_ypred, classnames))
@@ -145,7 +153,8 @@ def run_word2vec_baseline(args):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="main")
-    parser.add_argument('--model-type', help='naive_bayes|bow_logistic_regression')
+    parser.add_argument('--subtask-id', help='which subtask? a|b')
+    parser.add_argument('--model-type', help='naive_bayes|bow_logistic_regression|word2vec_logistic_regression')
     parser.add_argument('--train-file', help='file for train data')
     parser.add_argument('--dev-file', help='file for dev data')
     parser.add_argument('--test-file', help='file for dev data')
