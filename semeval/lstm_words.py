@@ -8,7 +8,10 @@ import Tweet
 import lasagne
 from gensim.models import word2vec
 
-MAX_SEQ = 140  # maximum length of a sequence
+import os
+import pickle
+
+MAX_SEQ = 70  # maximum length of a sequence
 
 
 def build_model(vmap,  # input vocab mapping
@@ -102,6 +105,23 @@ def build_model(vmap,  # input vocab mapping
     return network
 
 
+def read_model_data(model, filename):
+    """Unpickles and loads parameters into a Lasagne model."""
+    filename = os.path.join('./', '%s.%s' % (filename, 'params'))
+    with open(filename, 'r') as f:
+        data = pickle.load(f)
+    lasagne.layers.set_all_param_values(model, data)
+
+
+def write_model_data(model, filename):
+    """Pickels the parameters within a Lasagne model."""
+    data = lasagne.layers.get_all_param_values(model)
+    filename = os.path.join('./', filename)
+    filename = '%s.%s' % (filename, 'params')
+    with open(filename, 'w') as f:
+        pickle.dump(data, f)
+
+
 def preprocess(tweets, vmap=None, stopf='../lexica/stopwords.txt'):
     ''' Code to clean, remove stopwords and tokenize the tweet '''
     if vmap is None:
@@ -180,6 +200,41 @@ def load_dataset(train_file, val_file, test_file):
     return X_train, y_train, X_val, y_val, X_test, vmap
 
 
+def load_big_dataset(tweet_file, vocab_file, val_ratio=0.05):
+    '''
+        Load the big 1.6 million Dataset
+        tweet_file is location of the processed tweets
+        val_ratio is the fraction of tweets required for validation
+    '''
+    vmap = {}
+    with open(vocab_file, "r") as vf:
+        for line in vf:
+            id, w, cnt = line.strip().split("\t")
+            vmap[w.strip()] = int(id)
+
+    label_map = {'negative': 0,
+                 'positive': 1}
+    X = []
+    y = []
+    with open(tweet_file, "r") as tf:
+        for line in tf:
+            _, label, tweet = line.strip().split("\t")
+            X.append(map(int, tweet.strip().split()))
+            y.append(label_map[label.strip()])
+
+    X = pad_mask(X)
+    y = np.asarray(y, dtype=np.int32)
+    n = X.shape[0]
+    n_val = int(val_ratio * n)
+    indices = np.arange(n)
+    np.random.shuffle(indices)
+    train_indices = indices[:n-n_val]
+    val_indices = indices[n-n_val:]
+
+    return (X[train_indices], y[train_indices],
+            X[val_indices], y[val_indices], vmap)
+
+
 def iterate_minibatches(inputs, targets, batchsize, shuffle=False):
     ''' Taken from the mnist.py example of Lasagne'''
     # print inputs.shape, targets.size
@@ -195,8 +250,9 @@ def iterate_minibatches(inputs, targets, batchsize, shuffle=False):
         yield inputs[excerpt], targets[excerpt]
 
 
-def learn_model(train_path, val_path, test_path, max_norm=5,
-                num_epochs=5, batchsize=64, learn_rate=0.1):
+def learn_model(train_path, val_path=None, test_path=None, max_norm=5,
+                num_epochs=5, batchsize=64, learn_rate=0.1,
+                vocab_file=None, val_ratio=0.05):
     '''
         train to classify sentiment
         data is a tuple of (X, y)
@@ -209,15 +265,23 @@ def learn_model(train_path, val_path, test_path, max_norm=5,
     '''
 
     print "Loading Dataset"
-    X_train, y_train, X_val, y_val, X_test, vmap = load_dataset(train_path,
-                                                                val_path,
-                                                                test_path)
+    # X_train, y_train, X_val, y_val, X_test, vmap = load_dataset(train_path,
+    #                                                             val_path,
+    #                                                             test_path)
+
+    X_train, y_train, X_val, y_val, vmap = load_big_dataset(train_path,
+                                                            vocab_file,
+                                                            val_ratio)
+
+    print "Training size", X_train.shape[0]
+    print "Validation size", X_val.shape[0]
     # print X_train.shape, len(y_train)
     # print X_train[0], y_train[0]
     V = len(vmap)
     n_classes = len(set(y_train))
     print "Vocab size:", V
     print "Number of classes", n_classes
+    print "Classes", set(y_train)
 
     # Initialize theano variables for input and output
     X = T.imatrix('X')
@@ -236,8 +300,9 @@ def learn_model(train_path, val_path, test_path, max_norm=5,
 
     # Compute gradient updates
     params = lasagne.layers.get_all_params(network)
-    # grad_updates = lasagne.updates.nesterov_momentum(cost, params, learn_rate)
-    grad_updates = lasagne.updates.adam(cost, params)
+    # grad_updates = lasagne.updates.nesterov_momentum(cost, params,learn_rate)
+    # grad_updates = lasagne.updates.adam(cost, params)
+    grad_updates = lasagne.updates.adadelta(cost, params, learn_rate)
 
     # Compile train objective
     print "Compiling training functions"
@@ -247,16 +312,17 @@ def learn_model(train_path, val_path, test_path, max_norm=5,
 
     # need to switch off droput while testing
     test_output = lasagne.layers.get_output(network, deterministic=True)
-    val_cost = lasagne.objectives.categorical_crossentropy(
+    val_cost_fn = lasagne.objectives.categorical_crossentropy(
         test_output, y).mean()
     preds = T.argmax(test_output, axis=1)
-    val_acc = T.mean(T.eq(preds, y),
-                     dtype=theano.config.floatX)
-    val_fn = theano.function([X, M, y], [val_cost, val_acc, preds],
+    val_acc_fn = T.mean(T.eq(preds, y),
+                        dtype=theano.config.floatX)
+    val_fn = theano.function([X, M, y], [val_cost_fn, val_acc_fn, preds],
                              allow_input_downcast=True)
 
     print "Starting Training"
     begin_time = time.time()
+    best_val_acc = -np.inf
     for epoch in xrange(num_epochs):
         train_err = 0.
         train_batches = 0
@@ -271,43 +337,75 @@ def learn_model(train_path, val_path, test_path, max_norm=5,
             train_batches += 1
             # print "Batch {} : cost {:.6f}".format(
             #     train_batches, train_err / train_batches)
-            val_err = val_fn(X_val[:, :, 0], X_val[:, :, 1], y_val)
 
-            print("Batch {} of epoch {} took {:.3f}s".format(
-                train_batches, epoch+1, time.time() - start_time))
-            print("  training loss:\t\t{:.6f}".format(train_err / train_batches))
-            print("  validation loss:\t\t{:.6f}".format(val_err[0] * 1.0))
-            print("  validation accuracy:\t\t{:.2f} %".format(
-                val_err[1] * 100.))
-            print ("preds  0:", (val_err[2] == 0).sum(), "1:",
-                   (val_err[2] == 1).sum(), "2:", (val_err[2] == 2).sum()
-                   )
-            print ("truth  0:", (y_val == 0).sum(), "1:",
-                   (y_val == 1).sum(), "2:", (y_val == 2).sum()
-                   )
+            if train_batches % 128 == 0:
+                val_loss = 0.
+                val_acc = 0.
+                val_batches = 0
+                for batch in iterate_minibatches(X_val, y_val,
+                                                 batchsize, shuffle=False):
+                    x_val_mini, y_val_mini = batch
+                    v_loss, v_acc, _ = val_fn(x_val_mini[:, :, 0],
+                                              x_val_mini[:, :, 1],
+                                              y_val_mini)
+                    val_loss += v_loss
+                    val_acc += v_acc
+                    val_batches += 1
+                print("\tBatch {} of epoch {} took {:.3f}s".format(
+                    train_batches, epoch+1, time.time() - start_time))
+                print("\t training loss:\t\t{:.6f}".format(train_err /
+                                                           train_batches))
+                print("\t  validation loss:\t\t{:.6f}".format(val_loss /
+                                                              val_batches))
+                print("\t  validation accuracy:\t\t{:.2f} %".format(
+                    val_acc / val_batches * 100.))
+                if val_acc / val_batches >= best_val_acc:
+                    best_val_acc = val_acc / val_batches
+                    write_model_data(network, 'lstm_result/best_lstm_model')
 
 
-        val_err = val_fn(X_val[:, :, 0], X_val[:, :, 1], y_val)
-
+        val_loss = 0.
+        val_acc = 0.
+        val_batches = 0
+        for batch in iterate_minibatches(X_val, y_val,
+                                         batchsize, shuffle=False):
+            x_val_mini, y_val_mini = batch
+            v_loss, v_acc, _ = val_fn(x_val_mini[:, :, 0],
+                                      x_val_mini[:, :, 1],
+                                      y_val_mini)
+            val_loss += v_loss
+            val_acc += v_acc
+            val_batches += 1
         print("Epoch {} of {} took {:.3f}s".format(
             epoch + 1, num_epochs, time.time() - start_time))
-        print("  training loss:\t\t{:.6f}".format(train_err / train_batches))
-        print("  validation loss:\t\t{:.6f}".format(val_err[0] * 1.0))
+        print("  training loss:\t\t{:.6f}".format(train_err /
+                                                  train_batches))
+        print("  validation loss:\t\t{:.6f}".format(val_loss /
+                                                    val_batches))
         print("  validation accuracy:\t\t{:.2f} %".format(
-            val_err[1] * 100.))
-        print ("preds  0:", (val_err[2] == 0).sum(), "1:",
-               (val_err[2] == 1).sum(), "2:", (val_err[2] == 2).sum()
-               )
-        print ("truth  0:", (y_val == 0).sum(), "1:",
-               (y_val == 1).sum(), "2:", (y_val == 2).sum()
-               )
+            val_acc / val_batches * 100.))
+        if val_acc / val_batches >= best_val_acc:
+            best_val_acc = val_acc / val_batches
+            write_model_data(network, 'lstm_result/best_lstm_model')
+
+        # print ("preds  0:", (val_err[2] == 0).sum(), "1:",
+        #        (val_err[2] == 1).sum(), "2:", (val_err[2] == 2).sum()
+        #        )
+        # print ("truth  0:", (y_val == 0).sum(), "1:",
+        #        (y_val == 1).sum(), "2:", (y_val == 2).sum()
+        #        )
     print "Training took {:.3f}s".format(time.time() - begin_time)
 
     return network
 
 
 if __name__ == "__main__":
-    train_file = '../data/subtask-A/train.tsv'
-    val_file = '../data/subtask-A/dev.tsv'
-    test_file = '../data/subtask-A/test.tsv'
-    learn_model(train_file, val_file, test_file)
+    # train_file = '../data/subtask-A/train.tsv'
+    # val_file = '../data/subtask-A/dev.tsv'
+    # test_file = '../data/subtask-A/test.tsv'
+    # learn_model(train_file, val_file, test_file)
+
+    tweet_file = '/iesl/canvas/tbansal/trainingandtestdata/tweets_1.6M_processed_bow.tsv'
+    vfile = '/iesl/canvas/tbansal/trainingandtestdata/tweets_1.6M_processed_bow.tsv.vocab.txt'
+    learn_model(train_path=tweet_file, vocab_file=vfile, num_epochs=200,
+                batchsize=1024, learn_rate=0.1)
