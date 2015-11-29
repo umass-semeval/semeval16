@@ -11,20 +11,20 @@ from gensim.models import word2vec
 import os
 import pickle
 
-MAX_SEQ = 70  # maximum length of a sequence
+MAX_SEQ = 140  # maximum length of a sequence
 
 
 def build_model(vmap,  # input vocab mapping
                 num_classes,  # number classes to predict
-                K=20,  # dimensionality of embeddings
+                K=300,  # dimensionality of embeddings
                 num_hidden=128,  # number of hidden_units
                 batchsize=None,  # size of each batch (None for variable size)
                 input_var=None,  # theano variable for input
                 mask_var=None,  # theano variable for input mask
-                bidirectional=False,  # whether to use bi-directional LSTM
+                bidirectional=True,  # whether to use bi-directional LSTM
                 grad_clip=100,  # gradients above this will be clipped
                 max_seq_len=MAX_SEQ,  # maximum lenght of a sequence
-                ini_word2vec=True,  # whether to initialize with word2vec
+                ini_word2vec=False,  # whether to initialize with word2vec
                 word2vec_file='/iesl/canvas/tbansal/glove.twitter.27B.200d.txt',
                 # location of trained word vectors
                 ):
@@ -110,7 +110,7 @@ def build_model(vmap,  # input vocab mapping
                                            l_mask: (200, 140)})
 
     # add droput
-    network = lasagne.layers.DropoutLayer(network, p=0.5)
+    network = lasagne.layers.DropoutLayer(network, p=0.6)
 
     # output is dense layer (over all hidden units?)
     network = lasagne.layers.DenseLayer(
@@ -231,8 +231,12 @@ def load_big_dataset(tweet_file, test_file, vocab_file, val_ratio=0.05):
     vmap = {}
     with open(vocab_file, "r") as vf:
         for line in vf:
-            id, w, cnt = line.strip().split("\t")
-            vmap[w.strip()] = int(id)
+            # if len(line.split("\t")) > 3:
+            #     id, _, _, cnt = line.strip().decode('utf-8').split("\t")
+            #     w = r"\t"
+            # else:
+            id, w, cnt = line.strip().decode('utf-8').split("\t")
+            vmap[w] = int(id)
 
     label_map = {'negative': 0,
                  'positive': 1}
@@ -287,13 +291,7 @@ def learn_model(train_path, val_path=None, test_path=None, max_norm=5,
                 num_epochs=5, batchsize=64, learn_rate=0.1,
                 vocab_file=None, val_ratio=0.05, log_path=""):
     '''
-        train to classify sentiment
-        data is a tuple of (X, y)
-            where X is (Num Ex, Max Seq Length, 2)
-            with X[:,:,1] as the input mask
-            and y is (Num Ex,)
-        V is the vocab (or charset) size
-
+        Train to classify sentiment
         Returns the trained network
     '''
 
@@ -414,8 +412,10 @@ def learn_model(train_path, val_path=None, test_path=None, max_norm=5,
                         best_val_acc * 100.))
                 log_file.flush()
 
-        log_file.write("Epoch {} of {} took {:.3f}s\n".format(
-            epoch + 1, num_epochs, time.time() - start_time))
+        disp_msg = "Epoch {} of {} took {:.3f}s\n".format(
+            epoch + 1, num_epochs, time.time() - start_time)
+        print disp_msg
+        log_file.write(disp_msg)
         log_file.write("\t  training loss:\t\t{:.6f}\n".format(
             train_err / train_batches))
         val_loss, val_acc = compute_val_error(X_val=X_val, y_val=y_val)
@@ -440,8 +440,10 @@ def learn_model(train_path, val_path=None, test_path=None, max_norm=5,
         #        (y_val == 1).sum(), "2:", (y_val == 2).sum()
         #        )
     log_file.write("Training took {:.3f}s\n".format(time.time() - begin_time))
+
+    network = read_model_data(network, log_path + '/best_lstm_model')
     test_loss, test_acc, _ = val_fn(X_test[:, :, 0], X_test[:, :, 1], y_test)
-    log_file.write("Test accuracy:\t\t{:.2f}%\n".format(
+    log_file.write("Best Model Test accuracy:\t\t{:.2f}%\n".format(
         test_acc * 100.))
 
     log_file.close()
@@ -455,9 +457,9 @@ if __name__ == "__main__":
     # test_file = '../data/subtask-A/test.tsv'
     # learn_model(train_file, val_file, test_file)
 
-    tweet_file = '/iesl/canvas/tbansal/trainingandtestdata/tweets_1.6M_processed_new_bow.tsv'
-    vfile = '/iesl/canvas/tbansal/trainingandtestdata/tweets_1.6M_processed_bow.tsv.vocab.txt'
-    test_file = '/iesl/canvas/tbansal/trainingandtestdata/tweets_1.6M_processed_new_bow.tsv.test.tsv'
+    tweet_file = '/iesl/canvas/tbansal/trainingandtestdata/char_tweets_1.6M_processed_new_bow.tsv'
+    vfile = '/iesl/canvas/tbansal/trainingandtestdata/char_tweets_1.6M_processed_new_bow.tsv.vocab.txt'
+    test_file = '/iesl/canvas/tbansal/trainingandtestdata/char_tweets_1.6M_processed_new_bow.tsv.test.tsv'
     learn_model(train_path=tweet_file, vocab_file=vfile, test_path=test_file,
-                num_epochs=20, batchsize=1024, learn_rate=0.1,
-                log_path='lstm_result/')
+                num_epochs=10, batchsize=512, learn_rate=0.1,
+                log_path='lstm_result/char_bidirectional/')
