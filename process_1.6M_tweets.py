@@ -5,14 +5,17 @@ import argparse
 
 
 class MyCorpus(object):
-    def __init__(self, fname, stopf=None, V=None):
+    def __init__(self, fname, stopf=None, V=None, dictionary=None):
         self.fname = fname
         self.file = open(fname, "r")
         stoplist = []
         if stopf:  # read stop words
             with open(stopf, 'r') as f:
                 stoplist = map(lambda x: x.strip().lower(), f.readlines())
-        self.dictionary = self.make_dict(stoplist, V)
+        if not dictionary:
+            self.dictionary = self.make_dict(stoplist, V)
+        else:
+            self.dictionary = dictionary
 
     def reset(self):
         self.file.seek(0)
@@ -73,6 +76,8 @@ if __name__ == "__main__":
                         required=True)
     parser.add_argument('--output-file', help="location, name of output",
                         required=True)
+    parser.add_argument('--test-file', help="location of test file",
+                        default=None)
     parser.add_argument('--stop-words', help="location of stopwords",
                         default=None)
     parser.add_argument('--V', help="vocab size", default=None)
@@ -85,14 +90,25 @@ if __name__ == "__main__":
     tweet_corpus.dictionary.save_as_text(args.output_file+".vocab.txt",
                                          sort_by_word=False)
 
-    label_map = {0: "negative", 2: "neutral", 4: "positive"}
-    with open(args.output_file, "w+") as outf:
+    def read_proc(outname, corpus):
         num_blank = 0
-        for tid, tweet_bow, senti in tweet_corpus:
-            if len(tweet_bow) == 0:
-                num_blank += 1
-                continue
-            outf.write(tid + "\t" + label_map[senti] + "\t" +
-                       " ".join(map(str, tweet_bow)) + "\n")
+        label_map = {0: "negative", 2: "neutral", 4: "positive"}
+        with open(outname, "w+") as outf:
+            for tid, tweet_bow, senti in corpus:
+                if len(tweet_bow) == 0 or senti == 4:
+                    # NOTE: will ignore neutral tweets
+                    num_blank += 1
+                    continue
+                outf.write(tid + "\t" + label_map[senti] + "\t" +
+                           " ".join(map(str, tweet_bow)) + "\n")
+        return num_blank
 
-    print "Removed Tweets", num_blank
+    num_blank = read_proc(args.output_file, tweet_corpus)
+    print "Removed Tweets in train/val set", num_blank
+
+    if args.test_file:
+        print "Processing test set"
+        test_corpus = MyCorpus(args.test_file,
+                               dictionary=tweet_corpus.dictionary)
+        num_blank = read_proc(args.output_file + ".test.tsv", test_corpus)
+        print "Removed Tweets in test set", num_blank

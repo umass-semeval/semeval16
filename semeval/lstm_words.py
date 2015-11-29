@@ -17,14 +17,15 @@ MAX_SEQ = 70  # maximum length of a sequence
 def build_model(vmap,  # input vocab mapping
                 num_classes,  # number classes to predict
                 K=20,  # dimensionality of embeddings
-                num_hidden=32,  # number of hidden_units
+                num_hidden=128,  # number of hidden_units
                 batchsize=None,  # size of each batch (None for variable size)
                 input_var=None,  # theano variable for input
                 mask_var=None,  # theano variable for input mask
-                grad_clip=5,  # gradients above this will be clipped
+                bidirectional=False,  # whether to use bi-directional LSTM
+                grad_clip=100,  # gradients above this will be clipped
                 max_seq_len=MAX_SEQ,  # maximum lenght of a sequence
                 ini_word2vec=True,  # whether to initialize with word2vec
-                word2vec_file='/iesl/canvas/tbansal/glove.twitter.27B.50d.txt',
+                word2vec_file='/iesl/canvas/tbansal/glove.twitter.27B.200d.txt',
                 # location of trained word vectors
                 ):
 
@@ -35,7 +36,7 @@ def build_model(vmap,  # input vocab mapping
     if ini_word2vec:
         word2vec_model = word2vec.Word2Vec.load_word2vec_format(word2vec_file,
                                                                 binary=False)
-        print "  Loaded Word2Vec model"
+        print " Loaded Glove twitter Word2Vec model"
         K = word2vec_model[word2vec_model.vocab.keys()[0]].size  # override dim
         W = np.zeros((V, K), dtype=np.float32)
         no_vectors = 0
@@ -45,7 +46,7 @@ def build_model(vmap,  # input vocab mapping
             else:
                 W[vmap[w]] = np.random.normal(scale=0.01, size=K)
                 no_vectors += 1
-        print "  Initialized with word2vec. Couldn't find", no_vectors, "words!"
+        print " Initialized with word2vec. Couldn't find", no_vectors, "words!"
     else:
         W = lasagne.init.Normal()
 
@@ -59,28 +60,47 @@ def build_model(vmap,  # input vocab mapping
                                           output_size=K, W=W)
 
     # add droput
-    l_emb = lasagne.layers.DropoutLayer(l_emb, p=0.4)
+    l_emb = lasagne.layers.DropoutLayer(l_emb, p=0.2)
 
     print lasagne.layers.get_output_shape(l_emb,
                                           {l_in: (200, 140),
                                            l_mask: (200, 140)})
 
-    # network = lasagne.layers.LSTMLayer(
-    #     l_emb, num_units=num_hidden, grad_clipping=grad_clip,
-    #     nonlinearity=lasagne.nonlinearities.tanh, mask_input=l_mask
-    # )
-    #
-    # print lasagne.layers.get_output_shape(network,
-    #                                       {l_in: (200, 140),
-    #                                        l_mask: (200, 140)})
-    #
-    # # add droput
-    # network = lasagne.layers.DropoutLayer(network, p=0.8)
+    l_fwd = lasagne.layers.LSTMLayer(
+        l_emb, num_units=num_hidden, grad_clipping=grad_clip,
+        nonlinearity=lasagne.nonlinearities.tanh, mask_input=l_mask
+    )
+
+    print lasagne.layers.get_output_shape(l_fwd,
+                                          {l_in: (200, 140),
+                                           l_mask: (200, 140)})
+
+    # add droput
+    # l_fwd = lasagne.layers.DropoutLayer(l_fwd, p=0.6)
+
+    if bidirectional:
+        # add a backwards LSTM layer for bi-directional
+        l_bwd = lasagne.layers.LSTMLayer(
+            l_emb, num_units=num_hidden, grad_clipping=grad_clip,
+            nonlinearity=lasagne.nonlinearities.tanh, mask_input=l_mask,
+            backwards=True
+        )
+
+        print "backward layer:", lasagne.layers.get_output_shape(
+            l_bwd, {l_in: (200, 140), l_mask: (200, 140)})
+
+        # concatenate forward and backward LSTM
+        l_concat = lasagne.layers.ConcatLayer([l_fwd, l_bwd])
+    else:
+        l_concat = l_fwd
+
+    # add droput
+    l_concat = lasagne.layers.DropoutLayer(l_concat, p=0.6)
 
     # second hidden layer
-    # using just the activation at last time step as the representation
+    # uses just the activation at last time step as the representation
     network = lasagne.layers.LSTMLayer(
-        l_emb, num_units=num_hidden, grad_clipping=grad_clip,
+        l_concat, num_units=num_hidden, grad_clipping=grad_clip,
         nonlinearity=lasagne.nonlinearities.tanh, mask_input=l_mask,
         only_return_final=True
     )
@@ -90,7 +110,7 @@ def build_model(vmap,  # input vocab mapping
                                            l_mask: (200, 140)})
 
     # add droput
-    network = lasagne.layers.DropoutLayer(network, p=0.9)
+    network = lasagne.layers.DropoutLayer(network, p=0.5)
 
     # output is dense layer (over all hidden units?)
     network = lasagne.layers.DenseLayer(
@@ -118,7 +138,7 @@ def write_model_data(model, filename):
     data = lasagne.layers.get_all_param_values(model)
     filename = os.path.join('./', filename)
     filename = '%s.%s' % (filename, 'params')
-    with open(filename, 'w') as f:
+    with open(filename, 'w+') as f:
         pickle.dump(data, f)
 
 
@@ -177,7 +197,9 @@ def pad_mask(X, max_seq_length=MAX_SEQ):
 
 
 def load_dataset(train_file, val_file, test_file):
-    ''' Use Kate's Tweet class '''
+    ''' Load the semeval twitter data
+        Use Kate's Tweet class
+    '''
 
     class arbit:
         super
@@ -200,7 +222,7 @@ def load_dataset(train_file, val_file, test_file):
     return X_train, y_train, X_val, y_val, X_test, vmap
 
 
-def load_big_dataset(tweet_file, vocab_file, val_ratio=0.05):
+def load_big_dataset(tweet_file, test_file, vocab_file, val_ratio=0.05):
     '''
         Load the big 1.6 million Dataset
         tweet_file is location of the processed tweets
@@ -214,16 +236,23 @@ def load_big_dataset(tweet_file, vocab_file, val_ratio=0.05):
 
     label_map = {'negative': 0,
                  'positive': 1}
-    X = []
-    y = []
-    with open(tweet_file, "r") as tf:
-        for line in tf:
-            _, label, tweet = line.strip().split("\t")
-            X.append(map(int, tweet.strip().split()))
-            y.append(label_map[label.strip()])
 
-    X = pad_mask(X)
-    y = np.asarray(y, dtype=np.int32)
+    def read_data(infile):
+        X = []
+        y = []
+        with open(infile, "r") as tf:
+            for line in tf:
+                _, label, tweet = line.strip().split("\t")
+                if label == "neutral":
+                    continue
+                X.append(map(int, tweet.strip().split()))
+                y.append(label_map[label.strip()])
+
+        X = pad_mask(X)
+        y = np.asarray(y, dtype=np.int32)
+        return X, y
+
+    X, y = read_data(tweet_file)
     n = X.shape[0]
     n_val = int(val_ratio * n)
     indices = np.arange(n)
@@ -231,8 +260,12 @@ def load_big_dataset(tweet_file, vocab_file, val_ratio=0.05):
     train_indices = indices[:n-n_val]
     val_indices = indices[n-n_val:]
 
+    X_test, y_test = read_data(test_file)
+
     return (X[train_indices], y[train_indices],
-            X[val_indices], y[val_indices], vmap)
+            X[val_indices], y[val_indices],
+            X_test, y_test,
+            vmap)
 
 
 def iterate_minibatches(inputs, targets, batchsize, shuffle=False):
@@ -252,7 +285,7 @@ def iterate_minibatches(inputs, targets, batchsize, shuffle=False):
 
 def learn_model(train_path, val_path=None, test_path=None, max_norm=5,
                 num_epochs=5, batchsize=64, learn_rate=0.1,
-                vocab_file=None, val_ratio=0.05):
+                vocab_file=None, val_ratio=0.05, log_path=""):
     '''
         train to classify sentiment
         data is a tuple of (X, y)
@@ -269,12 +302,12 @@ def learn_model(train_path, val_path=None, test_path=None, max_norm=5,
     #                                                             val_path,
     #                                                             test_path)
 
-    X_train, y_train, X_val, y_val, vmap = load_big_dataset(train_path,
-                                                            vocab_file,
-                                                            val_ratio)
+    X_train, y_train, X_val, y_val, X_test, y_test, vmap = load_big_dataset(
+        train_path, test_path, vocab_file, val_ratio)
 
     print "Training size", X_train.shape[0]
     print "Validation size", X_val.shape[0]
+    print "Test size", X_test.shape[0]
     # print X_train.shape, len(y_train)
     # print X_train[0], y_train[0]
     V = len(vmap)
@@ -301,8 +334,8 @@ def learn_model(train_path, val_path=None, test_path=None, max_norm=5,
     # Compute gradient updates
     params = lasagne.layers.get_all_params(network)
     # grad_updates = lasagne.updates.nesterov_momentum(cost, params,learn_rate)
-    # grad_updates = lasagne.updates.adam(cost, params)
-    grad_updates = lasagne.updates.adadelta(cost, params, learn_rate)
+    grad_updates = lasagne.updates.adam(cost, params)
+    # grad_updates = lasagne.updates.adadelta(cost, params, learn_rate)
 
     # Compile train objective
     print "Compiling training functions"
@@ -319,6 +352,32 @@ def learn_model(train_path, val_path=None, test_path=None, max_norm=5,
                         dtype=theano.config.floatX)
     val_fn = theano.function([X, M, y], [val_cost_fn, val_acc_fn, preds],
                              allow_input_downcast=True)
+
+    log_file = open(log_path + "/training_log_" +
+                    time.strftime('%m%d%Y_%H%M%S'), "w+")
+
+    def compute_val_error(log_file=log_file, X_val=X_val, y_val=y_val):
+        val_loss = 0.
+        val_acc = 0.
+        val_batches = 0
+        for batch in iterate_minibatches(X_val, y_val,
+                                         batchsize, shuffle=False):
+            x_val_mini, y_val_mini = batch
+            v_loss, v_acc, _ = val_fn(x_val_mini[:, :, 0],
+                                      x_val_mini[:, :, 1],
+                                      y_val_mini)
+            val_loss += v_loss
+            val_acc += v_acc
+            val_batches += 1
+
+        val_loss /= val_batches
+        val_acc /= val_batches
+
+        log_file.write("\t  validation loss:\t\t{:.6f}\n".format(val_loss))
+        log_file.write("\t  validation accuracy:\t\t{:.2f} %\n".format(
+            val_acc * 100.))
+
+        return val_loss, val_acc
 
     print "Starting Training"
     begin_time = time.time()
@@ -338,63 +397,54 @@ def learn_model(train_path, val_path=None, test_path=None, max_norm=5,
             # print "Batch {} : cost {:.6f}".format(
             #     train_batches, train_err / train_batches)
 
-            if train_batches % 128 == 0:
-                val_loss = 0.
-                val_acc = 0.
-                val_batches = 0
-                for batch in iterate_minibatches(X_val, y_val,
-                                                 batchsize, shuffle=False):
-                    x_val_mini, y_val_mini = batch
-                    v_loss, v_acc, _ = val_fn(x_val_mini[:, :, 0],
-                                              x_val_mini[:, :, 1],
-                                              y_val_mini)
-                    val_loss += v_loss
-                    val_acc += v_acc
-                    val_batches += 1
-                print("\tBatch {} of epoch {} took {:.3f}s".format(
+            if train_batches % 512 == 0:
+                log_file.write("\tBatch {} of epoch {} took {:.3f}s\n".format(
                     train_batches, epoch+1, time.time() - start_time))
-                print("\t training loss:\t\t{:.6f}".format(train_err /
-                                                           train_batches))
-                print("\t  validation loss:\t\t{:.6f}".format(val_loss /
-                                                              val_batches))
-                print("\t  validation accuracy:\t\t{:.2f} %".format(
-                    val_acc / val_batches * 100.))
-                if val_acc / val_batches >= best_val_acc:
-                    best_val_acc = val_acc / val_batches
-                    write_model_data(network, 'lstm_result/best_lstm_model')
+                log_file.write("\t  training loss:\t\t{:.6f}\n".format(
+                    train_err / train_batches))
 
+                val_loss, val_acc = compute_val_error(X_val=X_val, y_val=y_val)
 
-        val_loss = 0.
-        val_acc = 0.
-        val_batches = 0
-        for batch in iterate_minibatches(X_val, y_val,
-                                         batchsize, shuffle=False):
-            x_val_mini, y_val_mini = batch
-            v_loss, v_acc, _ = val_fn(x_val_mini[:, :, 0],
-                                      x_val_mini[:, :, 1],
-                                      y_val_mini)
-            val_loss += v_loss
-            val_acc += v_acc
-            val_batches += 1
-        print("Epoch {} of {} took {:.3f}s".format(
+                if val_acc >= best_val_acc:
+                    best_val_acc = val_acc
+                    write_model_data(network, log_path + '/best_lstm_model')
+
+                log_file.write(
+                    "\tCurrent best validation accuracy:\t\t{:.2f}\n".format(
+                        best_val_acc * 100.))
+                log_file.flush()
+
+        log_file.write("Epoch {} of {} took {:.3f}s\n".format(
             epoch + 1, num_epochs, time.time() - start_time))
-        print("  training loss:\t\t{:.6f}".format(train_err /
-                                                  train_batches))
-        print("  validation loss:\t\t{:.6f}".format(val_loss /
-                                                    val_batches))
-        print("  validation accuracy:\t\t{:.2f} %".format(
-            val_acc / val_batches * 100.))
-        if val_acc / val_batches >= best_val_acc:
-            best_val_acc = val_acc / val_batches
-            write_model_data(network, 'lstm_result/best_lstm_model')
+        log_file.write("\t  training loss:\t\t{:.6f}\n".format(
+            train_err / train_batches))
+        val_loss, val_acc = compute_val_error(X_val=X_val, y_val=y_val)
+        if val_acc >= best_val_acc:
+            best_val_acc = val_acc
+            write_model_data(network, log_path + '/best_lstm_model')
 
+        log_file.write("Current best validation accuracy:\t\t{:.2f}\n".format(
+            best_val_acc * 100.))
+
+        if (epoch) % 3 == 0:
+            test_loss, test_acc, _ = val_fn(X_test[:, :, 0],
+                                            X_test[:, :, 1], y_test)
+            log_file.write("Test accuracy:\t\t{:.2f}\n".format(
+                test_acc * 100.))
+
+        log_file.flush()
         # print ("preds  0:", (val_err[2] == 0).sum(), "1:",
         #        (val_err[2] == 1).sum(), "2:", (val_err[2] == 2).sum()
         #        )
         # print ("truth  0:", (y_val == 0).sum(), "1:",
         #        (y_val == 1).sum(), "2:", (y_val == 2).sum()
         #        )
-    print "Training took {:.3f}s".format(time.time() - begin_time)
+    log_file.write("Training took {:.3f}s\n".format(time.time() - begin_time))
+    test_loss, test_acc, _ = val_fn(X_test[:, :, 0], X_test[:, :, 1], y_test)
+    log_file.write("Test accuracy:\t\t{:.2f}%\n".format(
+        test_acc * 100.))
+
+    log_file.close()
 
     return network
 
@@ -405,7 +455,9 @@ if __name__ == "__main__":
     # test_file = '../data/subtask-A/test.tsv'
     # learn_model(train_file, val_file, test_file)
 
-    tweet_file = '/iesl/canvas/tbansal/trainingandtestdata/tweets_1.6M_processed_bow.tsv'
+    tweet_file = '/iesl/canvas/tbansal/trainingandtestdata/tweets_1.6M_processed_new_bow.tsv'
     vfile = '/iesl/canvas/tbansal/trainingandtestdata/tweets_1.6M_processed_bow.tsv.vocab.txt'
-    learn_model(train_path=tweet_file, vocab_file=vfile, num_epochs=200,
-                batchsize=1024, learn_rate=0.1)
+    test_file = '/iesl/canvas/tbansal/trainingandtestdata/tweets_1.6M_processed_new_bow.tsv.test.tsv'
+    learn_model(train_path=tweet_file, vocab_file=vfile, test_path=test_file,
+                num_epochs=20, batchsize=1024, learn_rate=0.1,
+                log_path='lstm_result/')
