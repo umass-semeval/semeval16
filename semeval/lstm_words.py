@@ -17,12 +17,12 @@ MAX_SEQ = 140  # maximum length of a sequence
 def build_model(vmap,  # input vocab mapping
                 num_classes,  # number classes to predict
                 K=300,  # dimensionality of embeddings
-                num_hidden=128,  # number of hidden_units
+                num_hidden=256,  # number of hidden_units
                 batchsize=None,  # size of each batch (None for variable size)
                 input_var=None,  # theano variable for input
                 mask_var=None,  # theano variable for input mask
                 bidirectional=True,  # whether to use bi-directional LSTM
-                grad_clip=100,  # gradients above this will be clipped
+                grad_clip=100.,  # gradients above this will be clipped
                 max_seq_len=MAX_SEQ,  # maximum lenght of a sequence
                 ini_word2vec=False,  # whether to initialize with word2vec
                 word2vec_file='/iesl/canvas/tbansal/glove.twitter.27B.200d.txt',
@@ -60,15 +60,28 @@ def build_model(vmap,  # input vocab mapping
                                           output_size=K, W=W)
 
     # add droput
-    l_emb = lasagne.layers.DropoutLayer(l_emb, p=0.2)
+    # l_emb = lasagne.layers.DropoutLayer(l_emb, p=0.2)
 
     print lasagne.layers.get_output_shape(l_emb,
                                           {l_in: (200, 140),
                                            l_mask: (200, 140)})
 
+    # Use orthogonal Initialization for LSTM gates
+    gate_params = lasagne.layers.recurrent.Gate(
+        W_in=lasagne.init.Orthogonal(), W_hid=lasagne.init.Orthogonal(),
+        b=lasagne.init.Constant(0.)
+    )
+    cell_params = lasagne.layers.recurrent.Gate(
+        W_in=lasagne.init.Orthogonal(), W_hid=lasagne.init.Orthogonal(),
+        W_cell=None, b=lasagne.init.Constant(0.),
+        nonlinearity=lasagne.nonlinearities.tanh
+    )
+
     l_fwd = lasagne.layers.LSTMLayer(
         l_emb, num_units=num_hidden, grad_clipping=grad_clip,
-        nonlinearity=lasagne.nonlinearities.tanh, mask_input=l_mask
+        nonlinearity=lasagne.nonlinearities.tanh, mask_input=l_mask,
+        ingate=gate_params, forgetgate=gate_params, cell=cell_params,
+        outgate=gate_params, learn_init=True
     )
 
     print lasagne.layers.get_output_shape(l_fwd,
@@ -76,13 +89,15 @@ def build_model(vmap,  # input vocab mapping
                                            l_mask: (200, 140)})
 
     # add droput
-    # l_fwd = lasagne.layers.DropoutLayer(l_fwd, p=0.6)
+    # l_fwd = lasagne.layers.DropoutLayer(l_fwd, p=0.5)
 
     if bidirectional:
         # add a backwards LSTM layer for bi-directional
         l_bwd = lasagne.layers.LSTMLayer(
             l_emb, num_units=num_hidden, grad_clipping=grad_clip,
             nonlinearity=lasagne.nonlinearities.tanh, mask_input=l_mask,
+            ingate=gate_params, forgetgate=gate_params, cell=cell_params,
+            outgate=gate_params, learn_init=True,
             backwards=True
         )
 
@@ -95,13 +110,15 @@ def build_model(vmap,  # input vocab mapping
         l_concat = l_fwd
 
     # add droput
-    l_concat = lasagne.layers.DropoutLayer(l_concat, p=0.6)
+    l_concat = lasagne.layers.DropoutLayer(l_concat, p=0.5)
 
     # second hidden layer
     # uses just the activation at last time step as the representation
     network = lasagne.layers.LSTMLayer(
         l_concat, num_units=num_hidden, grad_clipping=grad_clip,
         nonlinearity=lasagne.nonlinearities.tanh, mask_input=l_mask,
+        ingate=gate_params, forgetgate=gate_params, cell=cell_params,
+        outgate=gate_params, learn_init=True,
         only_return_final=True
     )
 
@@ -289,7 +306,7 @@ def iterate_minibatches(inputs, targets, batchsize, shuffle=False):
 
 def learn_model(train_path, val_path=None, test_path=None, max_norm=5,
                 num_epochs=5, batchsize=64, learn_rate=0.1,
-                vocab_file=None, val_ratio=0.05, log_path=""):
+                vocab_file=None, val_ratio=0.1, log_path=""):
     '''
         Train to classify sentiment
         Returns the trained network
@@ -426,7 +443,7 @@ def learn_model(train_path, val_path=None, test_path=None, max_norm=5,
         log_file.write("Current best validation accuracy:\t\t{:.2f}\n".format(
             best_val_acc * 100.))
 
-        if (epoch) % 3 == 0:
+        if (epoch) % 1 == 0:
             test_loss, test_acc, _ = val_fn(X_test[:, :, 0],
                                             X_test[:, :, 1], y_test)
             log_file.write("Test accuracy:\t\t{:.2f}\n".format(
@@ -461,5 +478,5 @@ if __name__ == "__main__":
     vfile = '/iesl/canvas/tbansal/trainingandtestdata/char_tweets_1.6M_processed_new_bow.tsv.vocab.txt'
     test_file = '/iesl/canvas/tbansal/trainingandtestdata/char_tweets_1.6M_processed_new_bow.tsv.test.tsv'
     learn_model(train_path=tweet_file, vocab_file=vfile, test_path=test_file,
-                num_epochs=10, batchsize=512, learn_rate=0.1,
-                log_path='lstm_result/char_bidirectional/')
+                num_epochs=30, batchsize=512, learn_rate=0.1,
+                log_path='lstm_result/char_bidirectional/finalDropout_256hu/')
