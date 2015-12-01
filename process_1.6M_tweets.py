@@ -2,18 +2,40 @@ from gensim import corpora
 import csv
 import re
 import argparse
+import nltk
+import twokenize
 
+URL_PATTERN = re.compile(ur'(?i)\b((?:https?://|www\d{0,3}[.]|[a-z0-9.\-]+[.][a-z]{2,4}/)(?:[^\s()<>]+|\(([^\s()<>]+|(\([^\s()<>]+\)))*\))+(?:\(([^\s()<>]+|(\([^\s()<>]+\)))*\)|[^\s`!()\[\]{};:\'".,<>?\xab\xbb\u201c\u201d\u2018\u2019]))')
+USER_PATTERN = re.compile(ur'@\w+')
+NUM_PATTERN = re.compile(ur'[0-9]+')
+PATTERNS = {
+    'URL': URL_PATTERN,
+    'USER': USER_PATTERN,
+    'NUM': NUM_PATTERN
+}
 
 class MyCorpus(object):
-    def __init__(self, fname, stopf=None, V=None, dictionary=None):
+
+    def __init__(self, fname,
+                 stopf=None,
+                 V=None,
+                 dictionary=None,
+                 filter_below=30,
+                 filter_above=0.5):
+
+        self.print_count = 0
+        self.print_lim = 100
+
         self.fname = fname
         self.file = open(fname, "r")
+
         stoplist = []
         if stopf:  # read stop words
             with open(stopf, 'r') as f:
                 stoplist = map(lambda x: x.strip().lower(), f.readlines())
+
         if not dictionary:
-            self.dictionary = self.make_dict(stoplist, V)
+            self.dictionary = self.make_dict(stoplist, V, no_below=filter_below, no_above=filter_above)
         else:
             self.dictionary = dictionary
 
@@ -21,10 +43,14 @@ class MyCorpus(object):
         self.file.seek(0)
 
     def proc(self, line):
-        return filter(lambda x: len(x) >= 2,
-                      map(lambda x: x.strip(),
-                      re.sub(r'[0-9]+|\W', ' ',
-                             line.strip().lower()).split()))
+        the_line = line.strip().lower()
+        for pattern, regex in PATTERNS.items():
+            the_line = re.sub(regex, pattern, the_line)
+        try:
+            tokens = twokenize.tokenizeRawTweetText(the_line)
+        except UnicodeDecodeError:
+            tokens = the_line.split(' ')
+        return tokens
 
     def make_dict(self, stoplist=[], V=None, no_below=30, no_above=0.5):
         self.reset()
@@ -36,7 +62,8 @@ class MyCorpus(object):
         ''' remove words which occur in less than 5
             documents or more than 50% of documents
         '''
-        dictionary.filter_extremes(no_below=no_below, no_above=no_above,
+        dictionary.filter_extremes(no_below=no_below,
+                                   no_above=no_above,
                                    keep_n=V)
 
         # remove stop words
@@ -81,9 +108,18 @@ if __name__ == "__main__":
     parser.add_argument('--stop-words', help="location of stopwords",
                         default=None)
     parser.add_argument('--V', help="vocab size", default=None)
+    parser.add_argument('--filter-below', help='filter words occuring less than this many times', type=int)
+    parser.add_argument('--filter-above', help='filter words occurring in this % of documents', type=float)
 
     args = parser.parse_args()
-    tweet_corpus = MyCorpus(args.tweet_file, stopf=args.stop_words, V=args.V)
+    print(args)
+    tweet_corpus = MyCorpus(
+        args.tweet_file,
+        stopf=args.stop_words,
+        V=args.V,
+        filter_below=args.filter_below,
+        filter_above=args.filter_above
+    )
 
     print tweet_corpus.dictionary
 
@@ -112,3 +148,5 @@ if __name__ == "__main__":
                                dictionary=tweet_corpus.dictionary)
         num_blank = read_proc(args.output_file + ".test.tsv", test_corpus)
         print "Removed Tweets in test set", num_blank
+
+
