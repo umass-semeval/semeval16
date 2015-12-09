@@ -43,11 +43,11 @@ def build_model(vmap,  # input vocab mapping
         print 'done.'
         K = word2vec_model[word2vec_model.vocab.keys()[0]].size  # override dim
         print('embedding dim: %d' % K)
-        W = np.zeros((V, K), dtype=np.float64)
+        W = np.zeros((V, K), dtype=np.float32)
         no_vectors = 0
         for w in vmap:
             if w in word2vec_model.vocab:
-                W[vmap[w]] = word2vec_model[w]
+                W[vmap[w]] = np.asarray(word2vec_model[w], dtype=np.float32)
             else:
                 W[vmap[w]] = np.random.normal(scale=0.01, size=K)
                 no_vectors += 1
@@ -55,9 +55,6 @@ def build_model(vmap,  # input vocab mapping
         print " Initialized with word2vec. Couldn't find", no_vectors, "words!"
     else:
         W = lasagne.init.Normal()
-
-    print 'W SHAPE:'
-    print W.shape
 
     # Input Layer
     l_in = lasagne.layers.InputLayer((batchsize, max_seq_len), input_var=input_var)
