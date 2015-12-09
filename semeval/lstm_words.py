@@ -6,6 +6,7 @@ import time
 import Tweet
 
 import lasagne
+from lasagne.layers import get_output_shape
 from gensim.models import word2vec
 
 import os
@@ -24,6 +25,7 @@ def build_model(vmap,  # input vocab mapping
                 input_var=None,  # theano variable for input
                 mask_var=None,  # theano variable for input mask
                 bidirectional=True,  # whether to use bi-directional LSTM
+                mean_pooling=True,
                 grad_clip=100.,  # gradients above this will be clipped
                 max_seq_len=MAX_SEQ,  # maximum lenght of a sequence
                 ini_word2vec=False,  # whether to initialize with word2vec
@@ -36,8 +38,7 @@ def build_model(vmap,  # input vocab mapping
     # None lets us use variable bs
     # use a mask to outline the actual input sequence
     if ini_word2vec:
-        word2vec_model = word2vec.Word2Vec.load_word2vec_format(word2vec_file,
-                                                                binary=False)
+        word2vec_model = word2vec.Word2Vec.load_word2vec_format(word2vec_file, binary=False)
         print " Loaded Glove twitter Word2Vec model"
         K = word2vec_model[word2vec_model.vocab.keys()[0]].size  # override dim
         W = np.zeros((V, K), dtype=np.float32)
@@ -52,21 +53,27 @@ def build_model(vmap,  # input vocab mapping
     else:
         W = lasagne.init.Normal()
 
-    l_in = lasagne.layers.InputLayer((batchsize, max_seq_len),
-                                     input_var=input_var)
+    # Input Layer
+    l_in = lasagne.layers.InputLayer((batchsize, max_seq_len), input_var=input_var)
+    l_mask = lasagne.layers.InputLayer((batchsize, max_seq_len), input_var=mask_var)
 
-    l_mask = lasagne.layers.InputLayer((batchsize, max_seq_len),
-                                       input_var=mask_var)
+    ASSUMED = {l_in: (200, 140), l_mask: (200, 140)}
 
-    l_emb = lasagne.layers.EmbeddingLayer(l_in, input_size=V,
-                                          output_size=K, W=W)
+    print('Input Layer Shape:')
+    LIN = get_output_shape(l_in, ASSUMED)
+    print 'input:', ASSUMED
+    print 'output:', LIN
+    print
+
+    # Embedding layer
+    l_emb = lasagne.layers.EmbeddingLayer(l_in, input_size=V, output_size=K, W=W)
+    print('Embedding Layer Shape:')
+    print 'input:', LIN
+    print 'output:', get_output_shape(l_emb, ASSUMED)
+    print
 
     # add droput
     # l_emb = lasagne.layers.DropoutLayer(l_emb, p=0.2)
-
-    print lasagne.layers.get_output_shape(l_emb,
-                                          {l_in: (200, 140),
-                                           l_mask: (200, 140)})
 
     # Use orthogonal Initialization for LSTM gates
     gate_params = lasagne.layers.recurrent.Gate(
@@ -86,9 +93,10 @@ def build_model(vmap,  # input vocab mapping
         outgate=gate_params, learn_init=True
     )
 
-    print lasagne.layers.get_output_shape(l_fwd,
-                                          {l_in: (200, 140),
-                                           l_mask: (200, 140)})
+    print('Forward LSTM Shape:')
+    print 'input:', get_output_shape(l_emb, ASSUMED)
+    print 'output:', get_output_shape(l_fwd, ASSUMED)
+    print
 
     # add droput
     # l_fwd = lasagne.layers.DropoutLayer(l_fwd, p=0.5)
@@ -102,44 +110,69 @@ def build_model(vmap,  # input vocab mapping
             outgate=gate_params, learn_init=True,
             backwards=True
         )
+        print('Backward LSTM Shape:')
+        print 'input:', get_output_shape(l_emb, ASSUMED)
+        print 'output:', get_output_shape(l_bwd, ASSUMED)
+        print
 
-        print "backward layer:", lasagne.layers.get_output_shape(
-            l_bwd, {l_in: (200, 140), l_mask: (200, 140)})
+        # print "backward layer:", lasagne.layers.get_output_shape(
+        #     l_bwd, {l_in: (200, 140), l_mask: (200, 140)})
 
         # concatenate forward and backward LSTM
         l_concat = lasagne.layers.ConcatLayer([l_fwd, l_bwd])
+        print('Concat Layer Shape:')
+        print 'input:', get_output_shape(l_fwd, ASSUMED), get_output_shape(l_bwd, ASSUMED)
+        print 'output:', get_output_shape(l_concat, ASSUMED)
+        print
     else:
         l_concat = l_fwd
+        print('Concat Layer Shape:')
+        print 'input:', get_output_shape(l_fwd, ASSUMED)
+        print 'output:', get_output_shape(l_concat, ASSUMED)
+        print
 
     # add droput
     l_concat = lasagne.layers.DropoutLayer(l_concat, p=0.5)
 
-    # second hidden layer
-    # uses just the activation at last time step as the representation
-    network = lasagne.layers.LSTMLayer(
-        l_concat, num_units=num_hidden, grad_clipping=grad_clip,
-        nonlinearity=lasagne.nonlinearities.tanh, mask_input=l_mask,
-        ingate=gate_params, forgetgate=gate_params, cell=cell_params,
-        outgate=gate_params, learn_init=True,
+    l_lstm2 = lasagne.layers.LSTMLayer(
+        l_concat,
+        num_units=num_hidden,
+        grad_clipping=grad_clip,
+        nonlinearity=lasagne.nonlinearities.tanh,
+        mask_input=l_mask,
+        ingate=gate_params,
+        forgetgate=gate_params,
+        cell=cell_params,
+        outgate=gate_params,
+        learn_init=True,
         only_return_final=True
     )
 
-    print lasagne.layers.get_output_shape(network,
-                                          {l_in: (200, 140),
-                                           l_mask: (200, 140)})
+    print('LSTM Layer #2 Shape:')
+    print 'input:', get_output_shape(l_concat, ASSUMED)
+    print 'output:', get_output_shape(l_lstm2, ASSUMED)
+    print
 
-    # add droput
-    network = lasagne.layers.DropoutLayer(network, p=0.6)
+    # add dropout
+    l_lstm2 = lasagne.layers.DropoutLayer(l_lstm2, p=0.6)
 
-    # output is dense layer (over all hidden units?)
+    # Mean Pooling Layer
+    pool_size = 16
+    l_pool = lasagne.layers.FeaturePoolLayer(l_lstm2, pool_size)
+    print('Mean Pool Layer Shape:')
+    print 'input:', get_output_shape(l_lstm2, ASSUMED)
+    print 'output:', get_output_shape(l_pool, ASSUMED)
+    print
+
+    # Dense Layer
     network = lasagne.layers.DenseLayer(
-        network, num_units=num_classes,
+        l_pool,
+        num_units=num_classes,
         nonlinearity=lasagne.nonlinearities.softmax
     )
-
-    print lasagne.layers.get_output_shape(network,
-                                          {l_in: (200, 140),
-                                           l_mask: (200, 140)})
+    print('Dense Layer Shape:')
+    print 'input:', get_output_shape(l_pool, ASSUMED)
+    print 'output:', get_output_shape(network, ASSUMED)
 
     return network
 
