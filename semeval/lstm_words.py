@@ -43,7 +43,7 @@ def build_model(vmap,  # input vocab mapping
         print 'done.'
         K = word2vec_model[word2vec_model.vocab.keys()[0]].size  # override dim
         print('embedding dim: %d' % K)
-        W = np.zeros((V, K), dtype=np.float32)
+        W = np.zeros((V, K), dtype=np.float64)
         no_vectors = 0
         for w in vmap:
             if w in word2vec_model.vocab:
@@ -51,20 +51,23 @@ def build_model(vmap,  # input vocab mapping
             else:
                 W[vmap[w]] = np.random.normal(scale=0.01, size=K)
                 no_vectors += 1
+        W = theano.shared(W)
         print " Initialized with word2vec. Couldn't find", no_vectors, "words!"
     else:
         W = lasagne.init.Normal()
-        print(W)
+
+    print 'W SHAPE:'
+    print W.shape
 
     # Input Layer
     l_in = lasagne.layers.InputLayer((batchsize, max_seq_len), input_var=input_var)
     l_mask = lasagne.layers.InputLayer((batchsize, max_seq_len), input_var=mask_var)
 
-    ASSUMED = {l_in: (200, 140), l_mask: (200, 140)}
+    HYPOTHETICALLY = {l_in: (200, 140), l_mask: (200, 140)}
 
     print('Input Layer Shape:')
-    LIN = get_output_shape(l_in, ASSUMED)
-    print 'input:', ASSUMED
+    LIN = get_output_shape(l_in, HYPOTHETICALLY)
+    print 'input:', HYPOTHETICALLY
     print 'output:', LIN
     print
 
@@ -72,7 +75,7 @@ def build_model(vmap,  # input vocab mapping
     l_emb = lasagne.layers.EmbeddingLayer(l_in, input_size=V, output_size=K, W=W)
     print('Embedding Layer Shape:')
     print 'input:', LIN
-    print 'output:', get_output_shape(l_emb, ASSUMED)
+    print 'output:', get_output_shape(l_emb, HYPOTHETICALLY)
     print
 
     # add droput
@@ -97,8 +100,8 @@ def build_model(vmap,  # input vocab mapping
     )
 
     print('Forward LSTM Shape:')
-    print 'input:', get_output_shape(l_emb, ASSUMED)
-    print 'output:', get_output_shape(l_fwd, ASSUMED)
+    print 'input:', get_output_shape(l_emb, HYPOTHETICALLY)
+    print 'output:', get_output_shape(l_fwd, HYPOTHETICALLY)
     print
 
     # add droput
@@ -114,8 +117,8 @@ def build_model(vmap,  # input vocab mapping
             backwards=True
         )
         print('Backward LSTM Shape:')
-        print 'input:', get_output_shape(l_emb, ASSUMED)
-        print 'output:', get_output_shape(l_bwd, ASSUMED)
+        print 'input:', get_output_shape(l_emb, HYPOTHETICALLY)
+        print 'output:', get_output_shape(l_bwd, HYPOTHETICALLY)
         print
 
         # print "backward layer:", lasagne.layers.get_output_shape(
@@ -124,14 +127,14 @@ def build_model(vmap,  # input vocab mapping
         # concatenate forward and backward LSTM
         l_concat = lasagne.layers.ConcatLayer([l_fwd, l_bwd])
         print('Concat Layer Shape:')
-        print 'input:', get_output_shape(l_fwd, ASSUMED), get_output_shape(l_bwd, ASSUMED)
-        print 'output:', get_output_shape(l_concat, ASSUMED)
+        print 'input:', get_output_shape(l_fwd, HYPOTHETICALLY), get_output_shape(l_bwd, HYPOTHETICALLY)
+        print 'output:', get_output_shape(l_concat, HYPOTHETICALLY)
         print
     else:
         l_concat = l_fwd
         print('Concat Layer Shape:')
-        print 'input:', get_output_shape(l_fwd, ASSUMED)
-        print 'output:', get_output_shape(l_concat, ASSUMED)
+        print 'input:', get_output_shape(l_fwd, HYPOTHETICALLY)
+        print 'output:', get_output_shape(l_concat, HYPOTHETICALLY)
         print
 
     # add droput
@@ -152,8 +155,8 @@ def build_model(vmap,  # input vocab mapping
     )
 
     print('LSTM Layer #2 Shape:')
-    print 'input:', get_output_shape(l_concat, ASSUMED)
-    print 'output:', get_output_shape(l_lstm2, ASSUMED)
+    print 'input:', get_output_shape(l_concat, HYPOTHETICALLY)
+    print 'output:', get_output_shape(l_lstm2, HYPOTHETICALLY)
     print
 
     # add dropout
@@ -163,8 +166,8 @@ def build_model(vmap,  # input vocab mapping
     pool_size = 16
     l_pool = lasagne.layers.FeaturePoolLayer(l_lstm2, pool_size)
     print('Mean Pool Layer Shape:')
-    print 'input:', get_output_shape(l_lstm2, ASSUMED)
-    print 'output:', get_output_shape(l_pool, ASSUMED)
+    print 'input:', get_output_shape(l_lstm2, HYPOTHETICALLY)
+    print 'output:', get_output_shape(l_pool, HYPOTHETICALLY)
     print
 
     # Dense Layer
@@ -174,8 +177,8 @@ def build_model(vmap,  # input vocab mapping
         nonlinearity=lasagne.nonlinearities.softmax
     )
     print('Dense Layer Shape:')
-    print 'input:', get_output_shape(l_pool, ASSUMED)
-    print 'output:', get_output_shape(network, ASSUMED)
+    print 'input:', get_output_shape(l_pool, HYPOTHETICALLY)
+    print 'output:', get_output_shape(network, HYPOTHETICALLY)
 
     return network
 
