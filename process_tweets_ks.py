@@ -68,6 +68,7 @@ def tokenize(line):
 
 
 def process(filename, dictionary=None):
+    print('processing %s' % filename)
     unicode_errors = 0
     parse_errors = 0
     lines = []
@@ -87,6 +88,8 @@ def process(filename, dictionary=None):
     if dictionary is None:
         dictionary = corpora.Dictionary()
         make_dict = True
+
+    print('make dictionary? %s' % make_dict)
 
     nlines = len(lines)
     ncomplete = 0
@@ -116,8 +119,14 @@ def process(filename, dictionary=None):
     return processed_lines, dictionary
 
 
-def write(outfile, lines, dictionary):
-    dictionary.save_as_text(outfile+".vocab.txt", sort_by_word=False)
+def write(outfile, lines, dictionary=None):
+    print('writing %s' % outfile)
+
+    if dictionary:
+        dict_filename = '%s.vocab' % outfile
+        print('writing dictionary to %s' % dict_filename)
+        dictionary.save_as_text(outfile+".vocab", sort_by_word=False)
+
     outf = codecs.open(outfile, 'w+', 'utf-8')
     outf_words = codecs.open(outfile + '.words', 'w+', 'utf-8')
     label_map = {0: "negative", 2: "neutral", 4: "positive"}
@@ -147,12 +156,12 @@ def main(args):
     filename = args.tweet_file
     lines, dictionary = process(filename)
     outfile = args.output_file
-    write(outfile, lines, dictionary)
+    write(outfile, lines, dictionary=dictionary)
     if args.test_file:
         testfile = args.test_file
         print('processing test file %s' % testfile)
-        lines, dictionary = process(testfile, dictionary=dictionary)
-        write(outfile + '.test', lines, dictionary)
+        lines, _ = process(testfile, dictionary=dictionary)
+        write(outfile + '.test', lines, dictionary=None)
     print('done')
 
 
@@ -167,6 +176,7 @@ if __name__ == '__main__':
     parser.add_argument('--filter-above', help='filter words occurring in this % of documents', type=float)
 
     args = parser.parse_args()
+    print("ARGS:")
     print(args)
     main(args)
 
