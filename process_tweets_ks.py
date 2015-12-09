@@ -119,10 +119,10 @@ def process(filename, dictionary=None):
     return processed_lines, dictionary
 
 
-def write(outfile, lines, dictionary=None):
+def write(outfile, lines, dictionary, write_dict=False):
     print('writing %s' % outfile)
 
-    if dictionary:
+    if write_dict:
         dict_filename = '%s.vocab' % outfile
         print('writing dictionary to %s' % dict_filename)
         dictionary.save_as_text(outfile+".vocab", sort_by_word=False)
@@ -156,12 +156,12 @@ def main(args):
     filename = args.tweet_file
     lines, dictionary = process(filename)
     outfile = args.output_file
-    write(outfile, lines, dictionary=dictionary)
+    write(outfile, lines, dictionary, write_dict=True)
     if args.test_file:
         testfile = args.test_file
         print('processing test file %s' % testfile)
         lines, _ = process(testfile, dictionary=dictionary)
-        write(outfile + '.test', lines, dictionary=None)
+        write(outfile + '.test', lines, dictionary, write_dict=False)
     print('done')
 
 

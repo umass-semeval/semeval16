@@ -10,6 +10,8 @@ from gensim.models import word2vec
 
 import os
 import pickle
+import argparse
+
 
 MAX_SEQ = 140  # maximum length of a sequence
 
@@ -261,14 +263,19 @@ def load_big_dataset(tweet_file, test_file, vocab_file, val_ratio=0.05):
     def read_data(infile):
         X = []
         y = []
+        nerrs = 0
         with open(infile, "r") as tf:
             for line in tf:
-                _, label, tweet = line.strip().split("\t")
+                parts = line.strip().split('\t')
+                if len(parts) != 3:
+                    nerrs += 1
+                    continue
+                _, label, tweet = parts[0], parts[1], parts[2]
                 if label == "neutral":
                     continue
                 X.append(map(int, tweet.strip().split()))
                 y.append(label_map[label.strip()])
-
+        print('%d bad lines for file %s' % (nerrs, infile))
         X = pad_mask(X)
         y = np.asarray(y, dtype=np.int32)
         return X, y
@@ -469,14 +476,40 @@ def learn_model(train_path, val_path=None, test_path=None, max_norm=5,
 
 
 if __name__ == "__main__":
+    p = argparse.ArgumentParser(description='train word-level lstm')
+    p.add_argument('--tweet-file', required=True, help='path to train data')
+    p.add_argument('--vocab', required=True, help='path to vocabulary')
+    p.add_argument('--log-path', type=str, required=True, help='path to store log file')
+
+    p.add_argument('--test-file', help='path to test file')
+
+    p.add_argument('--nepochs', type=int, default=30, help='# of epochs')
+    p.add_argument('--batchsize', type=int, default=512, help='batch size')
+    p.add_argument('--learning-rate', type=float, default=0.1, help='learning rate')
+
+    args = p.parse_args()
+    print("ARGS:")
+    print(args)
+
+    learn_model(
+        train_path=args.tweet_file,
+        vocab_file=args.vocab,
+        test_path=args.test_file,
+        num_epochs=args.nepochs,
+        batchsize=args.batchsize,
+        learn_rate=args.learning_rate,
+        log_path=args.log_path
+    )
+
+
     # train_file = '../data/subtask-A/train.tsv'
     # val_file = '../data/subtask-A/dev.tsv'
     # test_file = '../data/subtask-A/test.tsv'
     # learn_model(train_file, val_file, test_file)
 
-    tweet_file = '/iesl/canvas/tbansal/trainingandtestdata/char_tweets_1.6M_processed_new_bow.tsv'
-    vfile = '/iesl/canvas/tbansal/trainingandtestdata/char_tweets_1.6M_processed_new_bow.tsv.vocab.txt'
-    test_file = '/iesl/canvas/tbansal/trainingandtestdata/char_tweets_1.6M_processed_new_bow.tsv.test.tsv'
-    learn_model(train_path=tweet_file, vocab_file=vfile, test_path=test_file,
-                num_epochs=30, batchsize=512, learn_rate=0.1,
-                log_path='lstm_result/char_bidirectional/finalDropout_256hu/')
+    # tweet_file = '/iesl/canvas/tbansal/trainingandtestdata/char_tweets_1.6M_processed_new_bow.tsv'
+    # vfile = '/iesl/canvas/tbansal/trainingandtestdata/char_tweets_1.6M_processed_new_bow.tsv.vocab.txt'
+    # test_file = '/iesl/canvas/tbansal/trainingandtestdata/char_tweets_1.6M_processed_new_bow.tsv.test.tsv'
+    # learn_model(train_path=tweet_file, vocab_file=vfile, test_path=test_file,
+    #             num_epochs=30, batchsize=512, learn_rate=0.1,
+    #             log_path='lstm_result/char_bidirectional/finalDropout_256hu/')
