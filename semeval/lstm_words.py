@@ -38,9 +38,11 @@ def build_model(vmap,  # input vocab mapping
     # None lets us use variable bs
     # use a mask to outline the actual input sequence
     if ini_word2vec:
+        print('loading embeddings from file %s' % word2vec_file)
         word2vec_model = word2vec.Word2Vec.load_word2vec_format(word2vec_file, binary=False)
-        print " Loaded Glove twitter Word2Vec model"
+        print 'done.'
         K = word2vec_model[word2vec_model.vocab.keys()[0]].size  # override dim
+        print('embedding dim: %d' % K)
         W = np.zeros((V, K), dtype=np.float32)
         no_vectors = 0
         for w in vmap:
@@ -52,6 +54,7 @@ def build_model(vmap,  # input vocab mapping
         print " Initialized with word2vec. Couldn't find", no_vectors, "words!"
     else:
         W = lasagne.init.Normal()
+        print(W)
 
     # Input Layer
     l_in = lasagne.layers.InputLayer((batchsize, max_seq_len), input_var=input_var)
@@ -344,9 +347,17 @@ def iterate_minibatches(inputs, targets, batchsize, shuffle=False):
         yield inputs[excerpt], targets[excerpt]
 
 
-def learn_model(train_path, val_path=None, test_path=None, max_norm=5,
-                num_epochs=5, batchsize=64, learn_rate=0.1,
-                vocab_file=None, val_ratio=0.1, log_path=""):
+def learn_model(train_path,
+                val_path=None,
+                test_path=None,
+                max_norm=5,
+                num_epochs=5,
+                batchsize=64,
+                learn_rate=0.1,
+                vocab_file=None,
+                val_ratio=0.1,
+                log_path="",
+                embeddings_file=None):
     '''
         Train to classify sentiment
         Returns the trained network
@@ -378,7 +389,11 @@ def learn_model(train_path, val_path=None, test_path=None, max_norm=5,
 
     # Construct network
     print "Building Model"
-    network = build_model(vmap, n_classes, input_var=X, mask_var=M)
+    network = None
+    if embeddings_file:
+        network = build_model(vmap, n_classes, input_var=X, mask_var=M, ini_word2vec=True, word2vec_file=embeddings_file)
+    else:
+        network = build_model(vmap, n_classes, input_var=X, mask_var=M)
 
     # Get network output
     output = lasagne.layers.get_output(network)
@@ -425,12 +440,13 @@ def learn_model(train_path, val_path=None, test_path=None, max_norm=5,
             val_acc += v_acc
             val_batches += 1
 
-        val_loss /= val_batches
-        val_acc /= val_batches
-
-        log_file.write("\t  validation loss:\t\t{:.6f}\n".format(val_loss))
-        log_file.write("\t  validation accuracy:\t\t{:.2f} %\n".format(
-            val_acc * 100.))
+        try:
+            val_loss /= val_batches
+            val_acc /= val_batches
+            log_file.write("\t  validation loss:\t\t{:.6f}\n".format(val_loss))
+            log_file.write("\t  validation accuracy:\t\t{:.2f} %\n".format(val_acc * 100.))
+        except ZeroDivisionError:
+            print('WARNING: val_batches == 0')
 
         return val_loss, val_acc
 
@@ -516,6 +532,8 @@ if __name__ == "__main__":
 
     p.add_argument('--test-file', help='path to test file')
 
+    p.add_argument('--embeddings-file', help='path to embeddings')
+
     p.add_argument('--nepochs', type=int, default=30, help='# of epochs')
     p.add_argument('--batchsize', type=int, default=512, help='batch size')
     p.add_argument('--learning-rate', type=float, default=0.1, help='learning rate')
@@ -531,7 +549,8 @@ if __name__ == "__main__":
         num_epochs=args.nepochs,
         batchsize=args.batchsize,
         learn_rate=args.learning_rate,
-        log_path=args.log_path
+        log_path=args.log_path,
+        embeddings_file=args.embeddings_file
     )
 
 
