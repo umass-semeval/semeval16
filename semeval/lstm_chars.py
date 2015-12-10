@@ -193,29 +193,28 @@ def learn_model(train_path,
     y_val, X_val = dev
     y_test, X_test = test
 
-    ### sanity check ###
-    V = len(vmap)
-    pad_char = u"♥"
-    vmap[pad_char] = 0
-    for k, v in vmap.items():
-        print k, v
-
-    reverse_vmap = {}
-    for k, v in vmap.items():
-        reverse_vmap[v] = k
-    for check in X_train[:5]:
-        # print check
-        letters = []
-        for i, x in enumerate(check):
-            entry = x[0]
-            letters.append(reverse_vmap[entry])
-        print "".join(letters)
+    # ### sanity check ###
+    # V = len(vmap)
+    # pad_char = u"♥"
+    # vmap[pad_char] = 0
+    # for k, v in vmap.items():
+    #     print k, v
+    # reverse_vmap = {}
+    # for k, v in vmap.items():
+    #     reverse_vmap[v] = k
+    # for check in X_train[:5]:
+    #     # print check
+    #     letters = []
+    #     for i, x in enumerate(check):
+    #         entry = x[0]
+    #         letters.append(reverse_vmap[entry])
+    #     print "".join(letters)
 
     print "Training size", X_train.shape[0]
     print "Validation size", X_val.shape[0]
     print "Test size", X_test.shape[0]
 
-    V = len(vmap)
+    V = len(vmap) + 1  # account for 'padding char'
     n_classes = len(set(y_train))
     print "Vocab size:", V
     print "Number of classes", n_classes
