@@ -121,7 +121,7 @@ def build_model(vmap,
         cell=cell_params,
         outgate=gate_params,
         learn_init=True,
-        only_return_final=only_return_final
+        only_return_final=True  #only_return_final
     )
 
     print 'LSTM #2'
@@ -194,9 +194,8 @@ def learn_model(train_path,
     y_test, X_test = test
 
     # ### sanity check ###
-    # V = len(vmap)
-    # pad_char = u"♥"
-    # vmap[pad_char] = 0
+    pad_char = u'♥"'
+    vmap[pad_char] = 0
     # for k, v in vmap.items():
     #     print k, v
     # reverse_vmap = {}
@@ -214,7 +213,7 @@ def learn_model(train_path,
     print "Validation size", X_val.shape[0]
     print "Test size", X_test.shape[0]
 
-    V = len(vmap) + 1  # account for 'padding char'
+    V = len(vmap) 
     n_classes = len(set(y_train))
     print "Vocab size:", V
     print "Number of classes", n_classes
