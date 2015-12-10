@@ -1,4 +1,4 @@
-import utils
+import util
 import numpy as np
 import embedding
 
@@ -9,7 +9,7 @@ class FeatureExtractor:
         self.vocab = None
         self.stopwords = set([])
         if "stopwords" in kwargs:
-            self.stopwords = utils.load_stopwords(kwargs["stopwords"])
+            self.stopwords = util.load_stopwords(kwargs["stopwords"])
             print("loaded %d stopwords" % len(self.stopwords))
         self.word2vec_model = None
         if "word2vec_model" in kwargs:
