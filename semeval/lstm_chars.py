@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 import cPickle
 import os
 import time
@@ -22,13 +23,12 @@ def build_model(vmap,
                 batchsize=None,
                 invar=None,
                 maskvar=None,
-                bidirectional=False,
-                pool=False,
+                bidirectional=True,
+                pool=True,
                 grad_clip=100,
                 maxlen=MAXLEN):
 
     V = len(vmap)
-    K = nclasses
     W = lasagne.init.Normal()
 
     # Input Layer
@@ -71,10 +71,47 @@ def build_model(vmap,
     print 'Forward LSTM'
     print 'output:', get_output_shape(l_fwd, ASSUME)
 
-    l_fwd = layer.DropoutLayer(l_fwd, p=0.5)
+    l_concat = None
+    if bidirectional:
+        l_bwd = layer.LSTMLayer(
+            l_emb,
+            num_units=nhidden,
+            grad_clipping=grad_clip,
+            nonlinearity=lasagne.nonlinearities.tanh,
+            mask_input=l_mask,
+            ingate=gate_params,
+            forgetgate=gate_params,
+            cell=cell_params,
+            outgate=gate_params,
+            learn_init=True,
+            backwards=True
+        )
+        print 'Backward LSTM'
+        print 'output:', get_output_shape(l_bwd, ASSUME)
+
+        def tmean(a, b):
+            agg = theano.tensor.add(a, b)
+            agg /= 2.
+            return agg
+
+        # l_concat = layer.ConcatLayer([l_fwd, l_bwd])
+        if pool:
+            l_concat = layer.ElemwiseMergeLayer([l_fwd, l_bwd], tmean)
+        else:
+            l_concat = layer.ConcatLayer([l_fwd, l_bwd])
+    else:
+        l_concat = layer.ConcatLayer([l_fwd])
+    print 'Concat'
+    print 'output:', get_output_shape(l_concat, ASSUME)
+
+    l_concat = layer.DropoutLayer(l_concat, p=0.5)
+
+    only_return_final = True
+    if pool:
+        only_return_final = False
 
     l_lstm2 = layer.LSTMLayer(
-        l_fwd,
+        l_concat,
         num_units=nhidden,
         grad_clipping=grad_clip,
         nonlinearity=lasagne.nonlinearities.tanh,
@@ -84,7 +121,7 @@ def build_model(vmap,
         cell=cell_params,
         outgate=gate_params,
         learn_init=True,
-        only_return_final=True
+        only_return_final=only_return_final
     )
 
     print 'LSTM #2'
@@ -92,15 +129,22 @@ def build_model(vmap,
 
     l_lstm2 = layer.DropoutLayer(l_lstm2, p=0.6)
 
-    # # Mean Pooling Layer
-    # pool_size = 16
-    # l_pool = layer.FeaturePoolLayer(l_lstm2, pool_size)
-    # print('Mean Pool Layer Shape:')
-    # print 'output:', get_output_shape(l_pool, ASSUME)
-    # print
+    # l_pool = None
+    # if pool:
+    #     l_pool = layer.ElemwiseMergeLayer(l_lstm2, theano.tensor.mean)
+        # pool_size = 2
+        # l_pool = layer.FeaturePoolLayer(l_lstm2, pool_size)#, axis=2, pool_function=theano.tensor.mean)
+        # pool_size = 2
+        # l_pool = layer.Pool1DLayer(l_lstm2, pool_size) #, mode='average_exc_pad')
+        # print('Mean Pool Layer Shape:')
+        # print 'output:', get_output_shape(l_pool, ASSUME)
+
+    penultimate = l_lstm2
+    # if pool:
+    #     penultimate = l_pool
 
     network = layer.DenseLayer(
-        l_lstm2,
+        penultimate,
         num_units=nclasses,
         nonlinearity=lasagne.nonlinearities.softmax
     )
@@ -131,7 +175,7 @@ def learn_model(train_path,
                 test_path=None,
                 max_norm=5,
                 num_epochs=5,
-                batchsize=64,
+                batchsize=10,  # 64,
                 learn_rate=0.1,
                 vocab_file=None,
                 val_ratio=0.1,
@@ -143,22 +187,34 @@ def learn_model(train_path,
     '''
 
     print "Loading Dataset"
-    # X_train, y_train, X_val, y_val, X_test, vmap = load_dataset(train_path,
-    #                                                             val_path,
-    #                                                             test_path)
 
     train, dev, test, vmap = load_dataset(train_path, test_path, vocab_file, devfile=val_path)
     y_train, X_train = train
     y_val, X_val = dev
     y_test, X_test = test
-    # X_train, y_train, X_val, y_val, X_test, y_test, vmap = load_big_dataset(
-    #     train_path, test_path, vocab_file, val_ratio)
+
+    ### sanity check ###
+    V = len(vmap)
+    pad_char = u"♥"
+    vmap[pad_char] = 0
+    for k, v in vmap.items():
+        print k, v
+
+    reverse_vmap = {}
+    for k, v in vmap.items():
+        reverse_vmap[v] = k
+    for check in X_train[:5]:
+        # print check
+        letters = []
+        for i, x in enumerate(check):
+            entry = x[0]
+            letters.append(reverse_vmap[entry])
+        print "".join(letters)
 
     print "Training size", X_train.shape[0]
     print "Validation size", X_val.shape[0]
     print "Test size", X_test.shape[0]
-    # print X_train.shape, len(y_train)
-    # print X_train[0], y_train[0]
+
     V = len(vmap)
     n_classes = len(set(y_train))
     print "Vocab size:", V
@@ -325,9 +381,14 @@ def write_model_data(model, filename):
     with open(filename, 'w+') as f:
         cPickle.dump(data, f)
 
-def pad_mask(X, maxlen=MAXLEN):
+
+def pad_mask(X, pad_with=0, maxlen=MAXLEN):
     N = len(X)
-    X_out = np.zeros((N, maxlen, 2), dtype=np.int32)
+    X_out = None
+    if pad_with == 0:
+        X_out = np.zeros((N, maxlen, 2), dtype=np.int32)
+    else:
+        X_out = np.ones((N, maxlen, 2), dtype=np.int32) * pad_with
     for i, x in enumerate(X):
         n = len(x)
         if n < maxlen:
@@ -339,8 +400,8 @@ def pad_mask(X, maxlen=MAXLEN):
     return X_out
 
 
-def load_dataset(trainfile, testfile, vocabfile, devfile=None):
-    def load_file(fname):
+def load_dataset(trainfile, testfile, vocabfile, devfile=None, pad_with=0):
+    def load_file(fname, pad_with=0):
         X, Y = [], []
         nerrs = 0
         with open(fname, 'r') as f:
@@ -350,17 +411,27 @@ def load_dataset(trainfile, testfile, vocabfile, devfile=None):
                     nerrs += 1
                     continue
                 y, x = parts[0], parts[1]
+                if len(x) == 0:
+                    nerrs += 1
+                    continue
                 y = int(y)
                 x = map(int, x.split(' '))
+                #  shift up by 1 so padding doesnt perturb input
+                x = map(lambda i: i + 1, x)
                 Y.append(y)
                 X.append(x)
         print 'bad lines: ', nerrs
-        return np.asarray(Y, dtype=np.int32), pad_mask(X)
+        return np.asarray(Y, dtype=np.int32), pad_mask(X, pad_with=pad_with)
     vocab = cPickle.load(open(vocabfile, 'r'))
-    trainy, trainx = load_file(trainfile)
-    testy, testx = load_file(testfile)
+    vocab_shift = {}
+    V = len(vocab)
+    for k, v in vocab.items():
+        vocab_shift[k] = vocab[k] + 1
+    pad_with = 0
+    trainy, trainx = load_file(trainfile, pad_with=pad_with)
+    testy, testx = load_file(testfile, pad_with=pad_with)
     if devfile:
-        devy, devx = load_file(devfile)
+        devy, devx = load_file(devfile, pad_with=pad_with)
     else:
         n = len(trainy)
         nval = int(0.2 * n)
@@ -375,7 +446,7 @@ def load_dataset(trainfile, testfile, vocabfile, devfile=None):
     train = (trainy, trainx)
     dev = (devy, devx)
     test = (testy, testx)
-    return train, dev, test, vocab
+    return train, dev, test, vocab_shift
 
 
 if __name__ == '__main__':

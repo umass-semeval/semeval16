@@ -59,13 +59,16 @@ def charify(line):
         return None
 
 
-def process(filename, dictionary=None):
+def process(filename, dictionary=None, ascii=False):
     print('processing %s' % filename)
     unicode_errors = 0
     parse_errors = 0
     lines = []
     count = 0
-    with codecs.open(filename, 'rU', 'utf-8', 'ignore') as f:
+    mode = 'utf-8'
+    if ascii:
+        mode = 'ascii'
+    with codecs.open(filename, 'rU', mode, 'ignore') as f:
         for line in f:
             parsed = Line(line.rstrip('\n'), count)
             if parsed.error:
@@ -78,7 +81,7 @@ def process(filename, dictionary=None):
 
     make_dict = False
     if dictionary is None:
-        dictionary = defaultdict(int)
+        dictionary = {}
         make_dict = True
 
     print('make dictionary? %s' % make_dict)
@@ -102,13 +105,16 @@ def process(filename, dictionary=None):
     return processed_lines, dictionary
 
 
-def write(outfile, lines, dictionary, write_dict=False, label_map=None):
+def write(outfile, lines, dictionary, write_dict=False, label_map=None, ascii=False):
     print('writing %s' % outfile)
     if write_dict:
         dict_filename = '%s.vocab.pkl' % outfile
         print('writing dictionary to %s' % dict_filename)
         cPickle.dump(dictionary, open(dict_filename, 'w'))
-    outf = codecs.open(outfile, 'w+', 'utf-8')
+    mode = 'utf-8'
+    if ascii:
+        mode = 'ascii'
+    outf = codecs.open(outfile, 'w+', mode)
     assert label_map is not None
     int2label = {0: "negative", 2: "neutral", 4: "positive"}
     npos = 0
@@ -122,7 +128,8 @@ def write(outfile, lines, dictionary, write_dict=False, label_map=None):
         else:
             ints = []
             for c in line.chars:
-                ints.append(str(dictionary[c]))
+                if c in dictionary:
+                    ints.append(str(dictionary[c]))
             text = ' '.join(ints)
             if line.label not in label_map:
                 assert int(line.label) in int2label, 'bad label? %s' % line.label
@@ -144,17 +151,18 @@ def main(args):
     filename = args.tweet_file
     label_map = cPickle.load(open(args.label_map, 'r'))
     print(label_map)
-    lines, dictionary = process(filename)
+    lines, dictionary = process(filename, ascii=args.ascii)
     print('dict:')
     print(dictionary)
     outfile = args.output_file
-    write(outfile, lines, dictionary, write_dict=True, label_map=label_map)
+    write(outfile, lines, dictionary, write_dict=True, label_map=label_map, ascii=args.ascii)
     if args.test_file:
         testfile = args.test_file
         print('processing test file %s' % testfile)
-        lines, _ = process(testfile, dictionary=dictionary)
-        write(outfile + '.test', lines, dictionary, write_dict=False, label_map=label_map)
+        lines, _ = process(testfile, dictionary=dictionary, ascii=args.ascii)
+        write(outfile + '.test', lines, dictionary, write_dict=False, label_map=label_map, ascii=args.ascii)
     print('done')
+
 
 def main_semeval(args):
     trainfile = args.tweet_file
@@ -179,25 +187,6 @@ def main_semeval(args):
         test_out = '%s/test.chars.tsv' % outdir
         preprocess_semeval(args.test_file, test_out, vocab=vocab, label_dict=label_map)
 
-
-
-
-    # data_dir = '/home/kate/F15/semeval16/data/subtask-A'
-    # train = '%s/train.tsv' % data_dir
-    # dev = '%s/dev.tsv' % data_dir
-    # test = '%s/test.tsv' % data_dir
-    # out_dir = '/home/kate/F15/semeval16/chars'
-    # train_out = '%s/train.chars.tsv' % out_dir
-    # dev_out = '%s/dev.chars.tsv' % out_dir
-    # test_out = '%s/test.chars.tsv' % out_dir
-    # preprocess_semeval(train, train_out)
-    # vocab_file = '%s.vocab.pkl' % train_out
-    # vocab = cPickle.load(open(vocab_file, 'r'))
-    # label_file = '%s.labels.pkl' % train_out
-    # label_dict = cPickle.load(open(label_file, 'r'))
-    # preprocess_semeval(dev, dev_out, vocab=vocab, label_dict=label_dict)
-    # preprocess_semeval(test, test_out, vocab=vocab, label_dict=label_dict)
-    # print('done.')
 
 def preprocess_semeval(infile, outfile, vocab=None, label_dict=None):
     tweets = load_from_tsv(infile, subtask_id='a')
@@ -264,6 +253,7 @@ if __name__ == '__main__':
     parser.add_argument('--dev-file', help="location of test file", default=None)
 
     parser.add_argument('--vocab-file', help='vocab')
+    parser.add_argument('--ascii', type=bool, default=False)
     parser.add_argument('--semeval', type=bool, default=False)
 
     args = parser.parse_args()
