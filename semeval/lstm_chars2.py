@@ -252,12 +252,12 @@ def learn_model(train_path,
             write_model_data(network, log_path + '/best_lstm_model')
         logfile.write('current best validation accuracy: {:.2f}\n'.format(best_val_acc * 100.))
         if (epoch % 1) == 0:
-            test_loss, test_acc, _ = valfxn(testx, testy)
+            test_loss, test_acc, _ = valfxn(testx[:,:,:,0], testx[:,:,0,1], testy)
             logfile.write('test accuracy: {:.2f}\n'.format(test_acc * 100.))
         logfile.flush()
     logfile.write("Training took {:.3f}s\n".format(time.time() - start))
     network = read_model_data(network, log_path + '/best_lstm_model')
-    test_loss, test_acc, _ = valfxn(testx, testy)
+    test_loss, test_acc, _ = valfxn(testx[:,:,:,0], testx[:,:,0,1])
     logfile.write("Best Model Test accuracy:\t\t{:.2f}%\n".format(test_acc * 100.))
     logfile.close()
     return network
@@ -378,11 +378,28 @@ def write_model_data(model, filename):
         cPickle.dump(data, f)
 
 
+def test_model(args):
+    _, dev, test, vmap = load_dataset(args.tweet_file, args.testfile, args.vocab)
+    labelmap = cPickle.load(open(args.label_file, 'r'))
+    nclasses = len(labelmap)
+
+    X = T.itensor3('X')
+    M = T.matrix('M')
+    y = T.ivector('y')
+
+    print "building model"
+    network = build_model(vmap, nclasses, invar=X, maskvar=M)
+    print "loading params"
+    network = read_model_data(network, args.model_file)
+
+
 if __name__ == '__main__':
     p = argparse.ArgumentParser(description='train word-level lstm')
     p.add_argument('--tweet-file', required=True, help='path to train data')
     p.add_argument('--vocab', required=True, help='path to vocabulary')
+    p.add_argument('--label-file', type=str)
     p.add_argument('--log-path', type=str, required=True, help='path to store log file')
+    p.add_argument('--model-file', type=str)
 
     p.add_argument('--test-file', help='path to test file')
 
