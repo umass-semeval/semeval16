@@ -332,6 +332,50 @@ def load_big_dataset(tweet_file, test_file, vocab_file, val_ratio=0.05):
             vmap)
 
 
+def load_semeval_dataset(tweet_file, test_file, dev_file, vocab_file):
+    '''
+        Load the big 1.6 million Dataset
+        tweet_file is location of the processed tweets
+        val_ratio is the fraction of tweets required for validation
+    '''
+    vmap = {}
+    with open(vocab_file, "r") as vf:
+        for line in vf:
+            # if len(line.split("\t")) > 3:
+            #     id, _, _, cnt = line.strip().decode('utf-8').split("\t")
+            #     w = r"\t"
+            # else:
+            id, w, cnt = line.strip().decode('utf-8').split("\t")
+            vmap[w] = int(id)
+
+    label_map = {'negative': 0,
+                 'positive': 1}
+
+    def read_data(infile):
+        data = Tweet.load_from_tsv(infile)
+        X = []
+        y = []
+        for tweet in data:
+            if tweet.label == 'neutral':
+                continue
+            text = tweet.raw_text.lower()
+            ints = []
+            for w in text.split(' '):
+                if w in vmap:
+                    ints.append(vmap[w])
+            lv = label_map[tweet.label]
+            X.append(ints)
+            y.append(lv)
+        X = pad_mask(X)
+        y = np.asarray(y, dtype=np.int32)
+        return X, y
+
+    trainx, trainy = read_data(tweet_file)
+    devx, devy = read_data(dev_file)
+    testx, testy = read_data(test_file)
+    return trainx, trainy, devx, devy, testx, testy, vmap
+
+
 def iterate_minibatches(inputs, targets, batchsize, shuffle=False):
     ''' Taken from the mnist.py example of Lasagne'''
     # print inputs.shape, targets.size
@@ -357,25 +401,24 @@ def learn_model(train_path,
                 vocab_file=None,
                 val_ratio=0.1,
                 log_path="",
-                embeddings_file=None):
+                embeddings_file=None,
+                params_file=None,
+                use_semeval=False):
     '''
         Train to classify sentiment
         Returns the trained network
     '''
 
     print "Loading Dataset"
-    # X_train, y_train, X_val, y_val, X_test, vmap = load_dataset(train_path,
-    #                                                             val_path,
-    #                                                             test_path)
-
-    X_train, y_train, X_val, y_val, X_test, y_test, vmap = load_big_dataset(
-        train_path, test_path, vocab_file, val_ratio)
+    if use_semeval:
+         X_train, y_train, X_val, y_val, X_test, y_test, vmap = load_semeval_dataset(train_path, test_path, val_path, vocab_file)
+    else:
+        X_train, y_train, X_val, y_val, X_test, y_test, vmap = load_big_dataset(train_path, test_path, vocab_file, val_ratio)
 
     print "Training size", X_train.shape[0]
     print "Validation size", X_val.shape[0]
     print "Test size", X_test.shape[0]
-    # print X_train.shape, len(y_train)
-    # print X_train[0], y_train[0]
+
     V = len(vmap)
     n_classes = len(set(y_train))
     print "Vocab size:", V
@@ -394,6 +437,10 @@ def learn_model(train_path,
         network = build_model(vmap, n_classes, input_var=X, mask_var=M, ini_word2vec=True, word2vec_file=embeddings_file)
     else:
         network = build_model(vmap, n_classes, input_var=X, mask_var=M)
+
+    if params_file is not None:
+        print "Initializing params from file: %s" % params_file
+        read_model_data(network, params_file)
 
     # Get network output
     output = lasagne.layers.get_output(network)
@@ -524,13 +571,125 @@ def learn_model(train_path,
     return network
 
 
+def test_model(args):
+
+    def load_vocab(vocab_file):
+        vmap = {}
+        with open(vocab_file, "r") as vf:
+            for line in vf:
+                # if len(line.split("\t")) > 3:
+                #     id, _, _, cnt = line.strip().decode('utf-8').split("\t")
+                #     w = r"\t"
+                # else:
+                id, w, cnt = line.strip().decode('utf-8').split("\t")
+                vmap[w] = int(id)
+        return vmap
+
+    def get_files(semeval=False):
+        datasets = {'train': None, 'dev': None, 'test': None}
+        if semeval:
+            root = '/home/kate/F15/semeval16/data/subtask-A'
+            for i in ['train', 'dev', 'test']:
+                datasets[i] = '%s/%s.tsv' % (root, i)
+        else:
+            root = '/home/kate/F15/semeval16/WORD_DATA/big/old'
+            datasets['train'] = '%s/tweets.tsv.small' % root
+            datasets['test'] = '%s/tweets.tsv.test' % root
+        return datasets
+
+    logfile = open('%s/results.txt' % args.logdir, 'w+')
+    vmap = load_vocab(args.vocab)
+    V = len(vmap)
+    n_classes = 2
+    logfile.write("vocab size: %d\n" % V)
+
+    # Initialize theano variables for input and output
+    X = T.imatrix('X')
+    M = T.matrix('M')
+    y = T.ivector('y')
+
+    # Construct network
+    print "Building Model"
+    network = None
+    if args.embeddings_file:
+        logfile.write("embeddings file: %s" % args.embeddings_file)
+        network = build_model(vmap, n_classes, input_var=X, mask_var=M, ini_word2vec=True, word2vec_file=args.embeddings_file)
+    else:
+        network = build_model(vmap, n_classes, input_var=X, mask_var=M)
+    # Get network output
+    output = lasagne.layers.get_output(network)
+
+    # Define objective function (cost) to minimize, mean crossentropy error
+    cost = lasagne.objectives.categorical_crossentropy(output, y).mean()
+
+    # Compute gradient updates
+    params = lasagne.layers.get_all_params(network)
+
+    # need to switch off droput while testing
+    test_output = lasagne.layers.get_output(network, deterministic=True)
+    val_cost_fn = lasagne.objectives.categorical_crossentropy(test_output, y).mean()
+    preds = T.argmax(test_output, axis=1)
+    val_acc_fn = T.mean(T.eq(preds, y), dtype=theano.config.floatX)
+    val_fn = theano.function([X, M, y], [val_cost_fn, val_acc_fn, preds], allow_input_downcast=True)
+
+    def compute_val_error(log_file, X_val, y_val):
+        batchsize = min(64, len(y_val))
+        val_loss = 0.
+        val_acc = 0.
+        val_batches = 0
+        for batch in iterate_minibatches(X_val, y_val, batchsize, shuffle=False):
+            x_val_mini, y_val_mini = batch
+            v_loss, v_acc, _ = val_fn(x_val_mini[:, :, 0], x_val_mini[:, :, 1], y_val_mini)
+            val_loss += v_loss
+            val_acc += v_acc
+            val_batches += 1
+        try:
+            val_loss /= val_batches
+            val_acc /= val_batches
+            log_file.write("\t  validation loss:\t\t{:.6f}\n".format(val_loss))
+            log_file.write("\t  validation accuracy:\t\t{:.2f} %\n".format(val_acc * 100.))
+        except ZeroDivisionError:
+            print('WARNING: val_batches == 0')
+        return val_loss, val_acc
+
+    logfile.write('load params from file: %s\n\n' % args.model_file)
+    read_model_data(network, args.model_file)
+    logfile.write('~~~ 1.6M ~~~\n')
+    dsets = get_files(semeval=False)
+    print "files:", dsets
+    trainx, trainy, valx, valy, testx, testy, _ = load_big_dataset(dsets['train'], dsets['test'], args.vocab)
+    logfile.write('train: %s %d\n' % (dsets['train'], testy.shape[0]))
+    logfile.write('dev: None %d\n' % valy.shape[0])
+    logfile.write('test: %s %d\n\n' % (dsets['test'], testy.shape[0]))
+    logfile.flush()
+
+    val_loss, val_acc = compute_val_error(logfile, valx, valy)
+    test_loss, test_acc, _ = val_fn(testx[:, :, 0], testx[:, :, 1], testy)
+    logfile.write("Best Model Test accuracy:\t\t{:.2f}%\n".format(test_acc * 100.))
+    logfile.flush()
+
+    dsets = get_files(semeval=True)
+    trainx, trainy, valx, valy, testx, testy, _ = load_semeval_dataset(dsets['train'], dsets['test'], dsets['dev'], args.vocab)
+    logfile.write('\n\n~~~ SEMEVAL ~~~\n')
+    logfile.write('train: %s %d\n' % (dsets['train'], testy.shape[0]))
+    logfile.write('dev: %s %d\n' % (dsets['dev'], valy.shape[0]))
+    logfile.write('test: %s %d\n\n' % (dsets['test'], testy.shape[0]))
+    logfile.flush()
+    val_loss, val_acc = compute_val_error(logfile, valx, valy)
+    test_loss, test_acc, _ = val_fn(testx[:, :, 0], testx[:, :, 1], testy)
+    logfile.write("Best Model Test accuracy:\t\t{:.2f}%\n".format(test_acc * 100.))
+    logfile.close()
+
+
 if __name__ == "__main__":
     p = argparse.ArgumentParser(description='train word-level lstm')
     p.add_argument('--tweet-file', required=True, help='path to train data')
     p.add_argument('--vocab', required=True, help='path to vocabulary')
-    p.add_argument('--log-path', type=str, required=True, help='path to store log file')
+    p.add_argument('--log-path', type=str, help='path to store log file')
+    p.add_argument('--logdir', type=str)
 
     p.add_argument('--test-file', help='path to test file')
+    p.add_argument('--dev-file', type=str)
 
     p.add_argument('--embeddings-file', help='path to embeddings')
 
@@ -538,20 +697,24 @@ if __name__ == "__main__":
     p.add_argument('--batchsize', type=int, default=512, help='batch size')
     p.add_argument('--learning-rate', type=float, default=0.1, help='learning rate')
 
+    p.add_argument('--model-file', type=str)
+
     args = p.parse_args()
     print("ARGS:")
     print(args)
 
-    learn_model(
-        train_path=args.tweet_file,
-        vocab_file=args.vocab,
-        test_path=args.test_file,
-        num_epochs=args.nepochs,
-        batchsize=args.batchsize,
-        learn_rate=args.learning_rate,
-        log_path=args.log_path,
-        embeddings_file=args.embeddings_file
-    )
+    test_model(args)
+
+    # learn_model(
+    #     train_path=args.tweet_file,
+    #     vocab_file=args.vocab,
+    #     test_path=args.test_file,
+    #     num_epochs=args.nepochs,
+    #     batchsize=args.batchsize,
+    #     learn_rate=args.learning_rate,
+    #     log_path=args.log_path,
+    #     embeddings_file=args.embeddings_file
+    # )
 
 
     # train_file = '../data/subtask-A/train.tsv'
