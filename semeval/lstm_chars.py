@@ -3,7 +3,7 @@ import cPickle
 import os
 import time
 import argparse
-import codecs
+from collections import OrderedDict
 
 import numpy as np
 import theano
@@ -17,6 +17,7 @@ MAXLEN = 140
 
 
 def build_model(vmap,
+                log,
                 nclasses=2,
                 embedding_dim=50,
                 nhidden=256,
@@ -24,22 +25,14 @@ def build_model(vmap,
                 invar=None,
                 maskvar=None,
                 bidirectional=True,
-                pool=True,
+                pool='mean',
                 grad_clip=100,
                 maxlen=MAXLEN):
 
+    net = OrderedDict()
+
     V = len(vmap)
     W = lasagne.init.Normal()
-
-    # Input Layer
-    l_in = layer.InputLayer((batchsize, maxlen), input_var=invar)
-    l_mask = layer.InputLayer((batchsize, maxlen), input_var=maskvar)
-    ASSUME = {l_in: (200, 140), l_mask: (200, 140)}
-
-    # Embedding Layer
-    l_emb = layer.EmbeddingLayer(l_in, input_size=V, output_size=embedding_dim, W=W)
-    print 'Embedding Layer'
-    print 'output:', get_output_shape(l_emb, ASSUME)
 
     gate_params = layer.recurrent.Gate(
         W_in=lasagne.init.Orthogonal(),
@@ -55,30 +48,29 @@ def build_model(vmap,
         nonlinearity=lasagne.nonlinearities.tanh
     )
 
-    l_fwd = layer.LSTMLayer(
-        l_emb,
+    net['input'] = layer.InputLayer((batchsize, maxlen), input_var=invar)
+    net['mask'] = layer.InputLayer((batchsize, maxlen), input_var=maskvar)
+    ASSUME = {net['input']: (200, 140), net['mask']: (200, 140)}
+    net['emb'] = layer.EmbeddingLayer(net['input'], input_size=V, output_size=embedding_dim, W=W)
+    net['fwd1'] = layer.LSTMLayer(
+        net['emb'],
         num_units=nhidden,
         grad_clipping=grad_clip,
         nonlinearity=lasagne.nonlinearities.tanh,
-        mask_input=l_mask,
+        mask_input=net['mask'],
         ingate=gate_params,
         forgetgate=gate_params,
         cell=cell_params,
         outgate=gate_params,
         learn_init=True
     )
-
-    print 'Forward LSTM'
-    print 'output:', get_output_shape(l_fwd, ASSUME)
-
-    l_concat = None
     if bidirectional:
-        l_bwd = layer.LSTMLayer(
-            l_emb,
+        net['bwd1'] = layer.LSTMLayer(
+            net['emb'],
             num_units=nhidden,
             grad_clipping=grad_clip,
             nonlinearity=lasagne.nonlinearities.tanh,
-            mask_input=l_mask,
+            mask_input=net['mask'],
             ingate=gate_params,
             forgetgate=gate_params,
             cell=cell_params,
@@ -86,73 +78,50 @@ def build_model(vmap,
             learn_init=True,
             backwards=True
         )
-        print 'Backward LSTM'
-        print 'output:', get_output_shape(l_bwd, ASSUME)
-
-        def tmean(a, b):
-            agg = theano.tensor.add(a, b)
-            agg /= 2.
-            return agg
-
-        # l_concat = layer.ConcatLayer([l_fwd, l_bwd])
-        if pool:
-            l_concat = layer.ElemwiseMergeLayer([l_fwd, l_bwd], tmean)
+        if pool == 'mean':
+            def tmean(a, b):
+                agg = theano.tensor.add(a, b)
+                agg /= 2.
+                return agg
+            net['pool'] = layer.ElemwiseMergeLayer([net['fwd1'], net['bwd1']], tmean)
+        elif pool == 'sum':
+            net['pool'] = layer.ElemwiseSumLayer([net['fwd1'], net['bwd1']])
         else:
-            l_concat = layer.ConcatLayer([l_fwd, l_bwd])
+            net['pool'] = layer.ConcatLayer([net['fwd1'], net['bwd1']])
     else:
-        l_concat = layer.ConcatLayer([l_fwd])
-    print 'Concat'
-    print 'output:', get_output_shape(l_concat, ASSUME)
-
-    l_concat = layer.DropoutLayer(l_concat, p=0.5)
-
-    only_return_final = True
-    if pool:
-        only_return_final = False
-
-    l_lstm2 = layer.LSTMLayer(
-        l_concat,
+        net['pool'] = layer.ConcatLayer([net['fwd1']])
+    net['dropout1'] = layer.DropoutLayer(net['pool'], p=0.5)
+    net['fwd2'] = layer.LSTMLayer(
+        net['dropout1'],
         num_units=nhidden,
         grad_clipping=grad_clip,
         nonlinearity=lasagne.nonlinearities.tanh,
-        mask_input=l_mask,
+        mask_input=net['mask'],
         ingate=gate_params,
         forgetgate=gate_params,
         cell=cell_params,
         outgate=gate_params,
         learn_init=True,
-        only_return_final=True  #only_return_final
+        only_return_final=True
     )
-
-    print 'LSTM #2'
-    print 'output:', get_output_shape(l_lstm2, ASSUME)
-
-    l_lstm2 = layer.DropoutLayer(l_lstm2, p=0.6)
-
-    # l_pool = None
-    # if pool:
-    #     l_pool = layer.ElemwiseMergeLayer(l_lstm2, theano.tensor.mean)
-        # pool_size = 2
-        # l_pool = layer.FeaturePoolLayer(l_lstm2, pool_size)#, axis=2, pool_function=theano.tensor.mean)
-        # pool_size = 2
-        # l_pool = layer.Pool1DLayer(l_lstm2, pool_size) #, mode='average_exc_pad')
-        # print('Mean Pool Layer Shape:')
-        # print 'output:', get_output_shape(l_pool, ASSUME)
-
-    penultimate = l_lstm2
-    # if pool:
-    #     penultimate = l_pool
-
-    network = layer.DenseLayer(
-        penultimate,
+    net['dropout2'] = layer.DropoutLayer(net['fwd2'], p=0.6)
+    net['softmax'] = layer.DenseLayer(
+        net['dropout2'],
         num_units=nclasses,
         nonlinearity=lasagne.nonlinearities.softmax
     )
-
-    print 'Dense Layer'
-    print 'output:', get_output_shape(network, ASSUME)
-
-    return network
+    logstr = '========== MODEL ========== \n'
+    logstr += 'vocab size: %d\n' % V
+    logstr += 'embedding dim: %d\n' % embedding_dim
+    logstr += 'nhidden: %d\n' % nhidden
+    logstr += 'pooling: %s\n' % pool
+    for lname, lyr in net.items():
+        logstr += '%s %s\n' % (lname, str(get_output_shape(lyr, ASSUME)))
+    logstr += '=========================== \n'
+    print logstr
+    log.write(logstr)
+    log.flush()
+    return net
 
 
 def iterate_minibatches(inputs, targets, batchsize, shuffle=False):
@@ -186,28 +155,18 @@ def learn_model(train_path,
         Returns the trained network
     '''
 
-    print "Loading Dataset"
+    timestamp = time.strftime('%m%d%Y_%H%M%S')
+    log_file = open(log_path + "/training_log_" + timestamp, "w+")
 
+    print "Loading Dataset"
     train, dev, test, vmap = load_dataset(train_path, test_path, vocab_file, devfile=val_path)
     y_train, X_train = train
     y_val, X_val = dev
     y_test, X_test = test
 
     # ### sanity check ###
-    pad_char = u'♥"'
+    pad_char = u'♥'
     vmap[pad_char] = 0
-    # for k, v in vmap.items():
-    #     print k, v
-    # reverse_vmap = {}
-    # for k, v in vmap.items():
-    #     reverse_vmap[v] = k
-    # for check in X_train[:5]:
-    #     # print check
-    #     letters = []
-    #     for i, x in enumerate(check):
-    #         entry = x[0]
-    #         letters.append(reverse_vmap[entry])
-    #     print "".join(letters)
 
     print "Training size", X_train.shape[0]
     print "Validation size", X_val.shape[0]
@@ -219,6 +178,9 @@ def learn_model(train_path,
     print "Number of classes", n_classes
     print "Classes", set(y_train)
 
+    log_file.write('ntrain: %d\nnval: %d\nntest: %d\nnclasses: %d\nvocab size: %d\nbatchsize: %d\n' %
+                   (X_train.shape[0], X_val.shape[0], X_test.shape[0], n_classes, V, batchsize))
+
     # Initialize theano variables for input and output
     X = T.imatrix('X')
     M = T.matrix('M')
@@ -226,22 +188,16 @@ def learn_model(train_path,
 
     # Construct network
     print "Building Model"
-    network = build_model(vmap, n_classes, invar=X, maskvar=M)
-
-    # network = None
-    # if embeddings_file:
-    #     network = build_model(vmap, n_classes, invar=X, maskvar=M, ini_word2vec=True, word2vec_file=embeddings_file)
-    # else:
-    #     network = build_model(vmap, n_classes, input_var=X, mask_var=M)
+    network = build_model(vmap, log_file, n_classes, invar=X, maskvar=M)
 
     # Get network output
-    output = lasagne.layers.get_output(network)
+    output = lasagne.layers.get_output(network['softmax'])
 
     # Define objective function (cost) to minimize, mean crossentropy error
     cost = lasagne.objectives.categorical_crossentropy(output, y).mean()
 
     # Compute gradient updates
-    params = lasagne.layers.get_all_params(network)
+    params = lasagne.layers.get_all_params(network.values())
     # grad_updates = lasagne.updates.nesterov_momentum(cost, params,learn_rate)
     grad_updates = lasagne.updates.adam(cost, params)
     # grad_updates = lasagne.updates.adadelta(cost, params, learn_rate)
@@ -253,17 +209,15 @@ def learn_model(train_path,
                             allow_input_downcast=True)
 
     # need to switch off droput while testing
-    test_output = lasagne.layers.get_output(network, deterministic=True)
-    val_cost_fn = lasagne.objectives.categorical_crossentropy(
-        test_output, y).mean()
+    test_output = lasagne.layers.get_output(network['softmax'], deterministic=True)
+    val_cost_fn = lasagne.objectives.categorical_crossentropy(test_output, y).mean()
     preds = T.argmax(test_output, axis=1)
-    val_acc_fn = T.mean(T.eq(preds, y),
-                        dtype=theano.config.floatX)
-    val_fn = theano.function([X, M, y], [val_cost_fn, val_acc_fn, preds],
-                             allow_input_downcast=True)
+    val_acc_fn = T.mean(T.eq(preds, y), dtype=theano.config.floatX)
+    val_fn = theano.function([X, M, y], [val_cost_fn, val_acc_fn, preds], allow_input_downcast=True)
 
-    log_file = open(log_path + "/training_log_" +
-                    time.strftime('%m%d%Y_%H%M%S'), "w+")
+    csv = open('%s/data_%s' % (log_path, timestamp), 'w+')
+    csv.write('epoch, nexamples, train_loss, val_loss, val_acc\n')
+    csv.flush()
 
     def compute_val_error(log_file=log_file, X_val=X_val, y_val=y_val):
         val_loss = 0.
@@ -290,6 +244,9 @@ def learn_model(train_path,
         return val_loss, val_acc
 
     print "Starting Training"
+    nbatches = X_train.shape[0] / batchsize
+    valfreq = int(nbatches / 4.)  # evaluate every [valfreq] minibatches
+
     begin_time = time.time()
     best_val_acc = -np.inf
     for epoch in xrange(num_epochs):
@@ -304,10 +261,11 @@ def learn_model(train_path,
             # print x_train.shape, y_train.shape
             train_err += train(x_mini[:, :, 0], x_mini[:, :, 1], y_mini)
             train_batches += 1
+            print '[epoch %d batch %d/%d]' % (epoch, train_batches, nbatches)
             # print "Batch {} : cost {:.6f}".format(
             #     train_batches, train_err / train_batches)
 
-            if train_batches % 512 == 0:
+            if train_batches % valfreq == 0:
                 log_file.write("\tBatch {} of epoch {} took {:.3f}s\n".format(
                     train_batches, epoch+1, time.time() - start_time))
                 log_file.write("\t  training loss:\t\t{:.6f}\n".format(
@@ -317,12 +275,18 @@ def learn_model(train_path,
 
                 if val_acc >= best_val_acc:
                     best_val_acc = val_acc
+                    print '\t%f' % best_val_acc
                     write_model_data(network, log_path + '/best_lstm_model')
 
                 log_file.write(
                     "\tCurrent best validation accuracy:\t\t{:.2f}\n".format(
                         best_val_acc * 100.))
                 log_file.flush()
+
+                #     csv.write('epoch, nexamples, train_loss, val_loss, val_acc\n')
+                data = [epoch, train_batches*batchsize, train_err/train_batches, val_loss, val_acc]
+                csv.write(', '.join([str(d) for d in data]) + '\n')
+                csv.flush()
 
         disp_msg = "Epoch {} of {} took {:.3f}s\n".format(
             epoch + 1, num_epochs, time.time() - start_time)
@@ -353,12 +317,13 @@ def learn_model(train_path,
         #        )
     log_file.write("Training took {:.3f}s\n".format(time.time() - begin_time))
 
-    network = read_model_data(network, log_path + '/best_lstm_model')
+    read_model_data(network, log_path + '/best_lstm_model')
     test_loss, test_acc, _ = val_fn(X_test[:, :, 0], X_test[:, :, 1], y_test)
     log_file.write("Best Model Test accuracy:\t\t{:.2f}%\n".format(
         test_acc * 100.))
 
     log_file.close()
+    csv.close()
 
     return network
 
@@ -368,12 +333,12 @@ def read_model_data(model, filename):
     filename = os.path.join('./', '%s.%s' % (filename, 'params'))
     with open(filename, 'r') as f:
         data = cPickle.load(f)
-    lasagne.layers.set_all_param_values(model, data)
+    lasagne.layers.set_all_param_values(model.values(), data)
 
 
 def write_model_data(model, filename):
     """Pickels the parameters within a Lasagne model."""
-    data = lasagne.layers.get_all_param_values(model)
+    data = lasagne.layers.get_all_param_values(model.values())
     filename = os.path.join('./', filename)
     filename = '%s.%s' % (filename, 'params')
     with open(filename, 'w+') as f:
@@ -445,6 +410,12 @@ def load_dataset(trainfile, testfile, vocabfile, devfile=None, pad_with=0):
     dev = (devy, devx)
     test = (testy, testx)
     return train, dev, test, vocab_shift
+
+
+
+
+
+
 
 
 if __name__ == '__main__':
