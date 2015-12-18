@@ -4,32 +4,35 @@ import os
 import time
 import argparse
 from collections import OrderedDict
-
-from evaluate import ConfusionMatrix
-
 import numpy as np
+
 import theano
 import theano.tensor as T
 import lasagne
 import lasagne.layers as layer
 from lasagne.layers import get_output_shape
 
+from evaluate import ConfusionMatrix
+from hparams import HParams
 
 MAXLEN = 140
+SEED = 1234
 
 
-def build_model(vmap,
+def build_model(hyparams,
+                vmap,
                 log,
                 nclasses=2,
-                embedding_dim=50,
-                nhidden=256,
                 batchsize=None,
                 invar=None,
                 maskvar=None,
-                bidirectional=True,
-                pool='mean',
-                grad_clip=100,
                 maxlen=MAXLEN):
+
+    embedding_dim = hyparams.embedding_dim
+    nhidden = hyparams.nhidden
+    bidirectional = hyparams.bidirectional
+    pool = hyparams.pool
+    grad_clip = hyparams.grad_clip
 
     net = OrderedDict()
 
@@ -126,13 +129,14 @@ def build_model(vmap,
     return net
 
 
-def iterate_minibatches(inputs, targets, batchsize, shuffle=False):
+def iterate_minibatches(inputs, targets, batchsize, rng=None, shuffle=False):
     ''' Taken from the mnist.py example of Lasagne'''
     # print inputs.shape, targets.size
     assert inputs.shape[0] == targets.size
     if shuffle:
+        assert rng is not None
         indices = np.arange(inputs.shape[0])
-        np.random.shuffle(indices)
+        rng.shuffle(indices)
     for start_idx in range(0, inputs.shape[0] - batchsize + 1, batchsize):
         if shuffle:
             excerpt = indices[start_idx:start_idx + batchsize]
@@ -141,27 +145,25 @@ def iterate_minibatches(inputs, targets, batchsize, shuffle=False):
         yield inputs[excerpt], targets[excerpt]
 
 
-def learn_model(train_path,
+def learn_model(hyparams,
+                train_path,
                 val_path=None,
                 test_path=None,
-                max_norm=5,
-                num_epochs=5,
-                batchsize=10,  # 64,
-                learn_rate=0.1,
                 vocab_file=None,
-                val_ratio=0.1,
                 log_path="",
+                model_file=None,
                 embeddings_file=None):
     '''
         Train to classify sentiment
         Returns the trained network
     '''
+    RNG = np.random.RandomState(SEED)
 
     timestamp = time.strftime('%m%d%Y_%H%M%S')
     log_file = open(log_path + "/training_log_" + timestamp, "w+")
 
     print "Loading Dataset"
-    train, dev, test, vmap = load_dataset(train_path, test_path, vocab_file, devfile=val_path)
+    train, dev, test, vmap = load_dataset(train_path, test_path, vocab_file, rng=RNG, devfile=val_path)
     y_train, X_train = train
     y_val, X_val = dev
     y_test, X_test = test
@@ -181,16 +183,24 @@ def learn_model(train_path,
     print "Classes", set(y_train)
 
     log_file.write('ntrain: %d\nnval: %d\nntest: %d\nnclasses: %d\nvocab size: %d\nbatchsize: %d\n' %
-                   (X_train.shape[0], X_val.shape[0], X_test.shape[0], n_classes, V, batchsize))
+                   (X_train.shape[0], X_val.shape[0], X_test.shape[0], n_classes, V, hyparams.batchsize))
 
     # Initialize theano variables for input and output
     X = T.imatrix('X')
     M = T.matrix('M')
     y = T.ivector('y')
 
+    log_file.write(str(hyparams) + '\n')
+    log_file.flush()
+
     # Construct network
     print "Building Model"
-    network = build_model(vmap, log_file, n_classes, invar=X, maskvar=M)
+    network = build_model(hyparams, vmap, log_file, n_classes, invar=X, maskvar=M)
+
+    if model_file is not None:
+        read_model_data(network, model_file)
+        log_file.write('loaded params from file: %s\n' % model_file)
+        log_file.flush()
 
     # Get network output
     output = lasagne.layers.get_output(network['softmax'])
@@ -200,9 +210,17 @@ def learn_model(train_path,
 
     # Compute gradient updates
     params = lasagne.layers.get_all_params(network.values())
-    # grad_updates = lasagne.updates.nesterov_momentum(cost, params,learn_rate)
-    grad_updates = lasagne.updates.adam(cost, params)
-    # grad_updates = lasagne.updates.adadelta(cost, params, learn_rate)
+
+    grad_updates = None
+    optim = hyparams.optimizer
+    if optim == 'adagrad':
+        grad_updates = lasagne.updates.adagrad(cost, params, learning_rate=hyparams.learning_rate)
+    elif optim == 'adadelta':
+        grad_updates = lasagne.updates.adadelta(cost, params, learning_rate=hyparams.learning_rate)
+    elif optim == 'adam':
+        grad_updates = lasagne.updates.adam(cost, params)
+    else:
+        raise Exception('unsupported optimizer: %s' % optim)
 
     # Compile train objective
     print "Compiling training functions"
@@ -220,6 +238,9 @@ def learn_model(train_path,
     csv = open('%s/data_%s' % (log_path, timestamp), 'w+')
     csv.write('epoch, nexamples, train_loss, val_loss, val_acc\n')
     csv.flush()
+
+    batchsize = hyparams.batchsize
+    num_epochs = hyparams.nepochs
 
     def compute_val_error(log_file=log_file, X_val=X_val, y_val=y_val):
         val_loss = 0.
@@ -247,7 +268,7 @@ def learn_model(train_path,
 
     print "Starting Training"
     nbatches = X_train.shape[0] / batchsize
-    valfreq = int(nbatches / 4.)  # evaluate every [valfreq] minibatches
+    valfreq = max(int(nbatches / 32.), 2)  # evaluate every [valfreq] minibatches
 
     begin_time = time.time()
     best_val_acc = -np.inf
@@ -257,8 +278,7 @@ def learn_model(train_path,
         start_time = time.time()
         # if epoch > 5:
         #     learn_rate /= 2
-        for batch in iterate_minibatches(X_train, y_train,
-                                         batchsize, shuffle=True):
+        for batch in iterate_minibatches(X_train, y_train, batchsize, rng=RNG, shuffle=True):
             x_mini, y_mini = batch
             # print x_train.shape, y_train.shape
             train_err += train(x_mini[:, :, 0], x_mini[:, :, 1], y_mini)
@@ -285,7 +305,6 @@ def learn_model(train_path,
                         best_val_acc * 100.))
                 log_file.flush()
 
-                #     csv.write('epoch, nexamples, train_loss, val_loss, val_acc\n')
                 data = [epoch, train_batches*batchsize, train_err/train_batches, val_loss, val_acc]
                 csv.write(', '.join([str(d) for d in data]) + '\n')
                 csv.flush()
@@ -365,7 +384,7 @@ def pad_mask(X, pad_with=0, maxlen=MAXLEN):
     return X_out
 
 
-def load_dataset(trainfile, testfile, vocabfile, devfile=None, pad_with=0):
+def load_dataset(trainfile, testfile, vocabfile, devfile=None, rng=None, pad_with=0):
     def load_file(fname, pad_with=0):
         X, Y = [], []
         nerrs = 0
@@ -398,10 +417,11 @@ def load_dataset(trainfile, testfile, vocabfile, devfile=None, pad_with=0):
     if devfile:
         devy, devx = load_file(devfile, pad_with=pad_with)
     else:
+        assert rng is not None
         n = len(trainy)
         nval = int(0.2 * n)
         indices = np.arange(n)
-        np.random.shuffle(indices)
+        rng.shuffle(indices)
         train_indices = indices[:n-nval]
         val_indices = indices[n-nval:]
         devx = trainx[val_indices]
@@ -420,18 +440,28 @@ def test_model(model_path,
                test_path=None,
                vocab_file=None,
                label_file=None,
-               log_path="",
+               output_file=None,
                embeddings_file=None):
 
+    RNG = np.random.RandomState(SEED)
     timestamp = time.strftime('%m%d%Y_%H%M%S')
-    log_file = open(log_path + "/test_results_" + timestamp, "w+")
+    assert output_file is not None
+    log_file = open(output_file, 'w+')
+    log_file.write('%s\n' % timestamp)
+
     print "Loading Dataset"
-    _, dev, test, vmap = load_dataset(train_path, test_path, vocab_file, devfile=val_path)
+    _, dev, test, vmap = load_dataset(train_path, test_path, vocab_file, rng=RNG, devfile=val_path)
     y_val, X_val = dev
     y_test, X_test = test
-    n_classes = len(set(y_val))
     pad_char = u'♥'
     vmap[pad_char] = 0
+
+    log_file.write('dev: %d, test: %d\n' % (X_val.shape[0], X_test.shape[0]))
+
+    classes = cPickle.load(open(label_file, 'r'))
+    classnames = list(map(lambda x: x[0], sorted(classes.items(), key=lambda x: x[1])))
+    n_classes = len(classnames)
+    log_file.write('classes: %s\n' % str(classes))
 
     # Initialize theano variables for input and output
     X = T.imatrix('X')
@@ -440,8 +470,10 @@ def test_model(model_path,
 
     # Construct network
     print "Building Model"
-    log_file.write('model file: %s' % model_path)
-    network = build_model(vmap, log_file, n_classes, invar=X, maskvar=M)
+    log_file.write('model file: %s\n' % model_path)
+    #    network = build_model(hyparams, vmap, log_file, n_classes, invar=X, maskvar=M)
+
+    network = build_model(hyparams, vmap, log_file, n_classes, invar=X, maskvar=M)
     read_model_data(network, model_path)
 
     # need to switch off droput while testing
@@ -452,51 +484,67 @@ def test_model(model_path,
     val_fn = theano.function([X, M, y], [val_cost_fn, val_acc_fn, preds], allow_input_downcast=True)
 
     val_loss, val_acc, val_pred = val_fn(X_val[:, :, 0], X_val[:, :, 1], y_val)
-
-    dev_eval = ConfusionMatrix(y_val, val_pred, ['positive', 'negative'])
+    dev_eval = ConfusionMatrix(y_val, val_pred, classnames)
+    log_file.write('DEV RESULTS\n')
     log_file.write('%s\n' % str(dev_eval))
 
     test_loss, test_acc, test_pred = val_fn(X_test[:, :, 0], X_test[:, :, 1], y_test)
-    test_eval = ConfusionMatrix(y_test, test_pred, ['positive', 'negative'])
+    test_eval = ConfusionMatrix(y_test, test_pred, classnames)
+    log_file.write('TEST RESULTS\n')
     log_file.write('%s\n' % str(test_eval))
 
 
 if __name__ == '__main__':
     p = argparse.ArgumentParser(description='train word-level lstm')
+    # input
     p.add_argument('--tweet-file', required=True, help='path to train data')
-    p.add_argument('--vocab', required=True, help='path to vocabulary')
-    p.add_argument('--log-path', type=str, required=True, help='path to store log file')
-
     p.add_argument('--test-file', help='path to test file')
+    p.add_argument('--dev-file', type=str, help='path to dev set')
+    p.add_argument('--vocab', required=True, help='path to vocabulary')
+    p.add_argument('--model-file', type=str)
+    p.add_argument('--label-file', type=str)
 
+    # output
+    p.add_argument('--log-path', type=str, required=True, help='path to store log file')
+    p.add_argument('--results-file', type=str, help='filename for results file')
+
+    # hyperparameters
     p.add_argument('--nepochs', type=int, default=30, help='# of epochs')
     p.add_argument('--batchsize', type=int, default=512, help='batch size')
     p.add_argument('--learning-rate', type=float, default=0.1, help='learning rate')
+    p.add_argument('--bidirectional', type=int, default=1, help='bidirectional LSTM?')
+    p.add_argument('--nhidden', type=int, default=256, help='num hidden units')
+    p.add_argument('--embedding-dim', type=int, default=50, help='embedding size')
+    p.add_argument('--pool', type=str, default='mean', help='pooling strategy')
+    p.add_argument('--grad-clip', type=int, default=100, help='gradient clipping')
+    p.add_argument('--optimizer', type=str, default='adam', help='optimizer')
 
-    p.add_argument('--model-file', type=str)
-
+    # switches
     p.add_argument('--test-only', type=int, default=0, help='just test model contained in model file')
 
     args = p.parse_args()
     print("ARGS:")
     print(args)
+    hyparams = HParams()
+    hyparams.parse_args(args)
+    print hyparams
 
     if args.test_only:
         test_model(args.model_file,
                    train_path=args.tweet_file,
                    vocab_file=args.vocab,
                    test_path=args.test_file,
-                   log_path=args.log_path
+                   output_file=args.results_file,
+                   label_file=args.label_file
                    )
     else:
-        learn_model(
-            train_path=args.tweet_file,
-            vocab_file=args.vocab,
-            test_path=args.test_file,
-            num_epochs=args.nepochs,
-            batchsize=args.batchsize,
-            learn_rate=args.learning_rate,
-            log_path=args.log_path
-        )
+        learn_model(hyparams,
+                    args.tweet_file,
+                    vocab_file=args.vocab,
+                    test_path=args.test_file,
+                    val_path=args.dev_file,
+                    log_path=args.log_path,
+                    model_file=args.model_file
+                    )
 
 
