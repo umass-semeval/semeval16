@@ -5,6 +5,8 @@ import time
 import argparse
 from collections import OrderedDict
 
+from evaluate import ConfusionMatrix
+
 import numpy as np
 import theano
 import theano.tensor as T
@@ -172,7 +174,7 @@ def learn_model(train_path,
     print "Validation size", X_val.shape[0]
     print "Test size", X_test.shape[0]
 
-    V = len(vmap) 
+    V = len(vmap)
     n_classes = len(set(y_train))
     print "Vocab size:", V
     print "Number of classes", n_classes
@@ -412,10 +414,51 @@ def load_dataset(trainfile, testfile, vocabfile, devfile=None, pad_with=0):
     return train, dev, test, vocab_shift
 
 
+def test_model(model_path,
+               train_path,
+               val_path=None,
+               test_path=None,
+               vocab_file=None,
+               label_file=None,
+               log_path="",
+               embeddings_file=None):
 
+    timestamp = time.strftime('%m%d%Y_%H%M%S')
+    log_file = open(log_path + "/test_results_" + timestamp, "w+")
+    print "Loading Dataset"
+    _, dev, test, vmap = load_dataset(train_path, test_path, vocab_file, devfile=val_path)
+    y_val, X_val = dev
+    y_test, X_test = test
+    n_classes = len(set(y_val))
+    pad_char = u'♥'
+    vmap[pad_char] = 0
 
+    # Initialize theano variables for input and output
+    X = T.imatrix('X')
+    M = T.matrix('M')
+    y = T.ivector('y')
 
+    # Construct network
+    print "Building Model"
+    log_file.write('model file: %s' % model_path)
+    network = build_model(vmap, log_file, n_classes, invar=X, maskvar=M)
+    read_model_data(network, model_path)
 
+    # need to switch off droput while testing
+    test_output = lasagne.layers.get_output(network['softmax'], deterministic=True)
+    val_cost_fn = lasagne.objectives.categorical_crossentropy(test_output, y).mean()
+    preds = T.argmax(test_output, axis=1)
+    val_acc_fn = T.mean(T.eq(preds, y), dtype=theano.config.floatX)
+    val_fn = theano.function([X, M, y], [val_cost_fn, val_acc_fn, preds], allow_input_downcast=True)
+
+    val_loss, val_acc, val_pred = val_fn(X_val[:, :, 0], X_val[:, :, 1], y_val)
+
+    dev_eval = ConfusionMatrix(y_val, val_pred, ['positive', 'negative'])
+    log_file.write('%s\n' % str(dev_eval))
+
+    test_loss, test_acc, test_pred = val_fn(X_test[:, :, 0], X_test[:, :, 1], y_test)
+    test_eval = ConfusionMatrix(y_test, test_pred, ['positive', 'negative'])
+    log_file.write('%s\n' % str(test_eval))
 
 
 if __name__ == '__main__':
@@ -430,34 +473,30 @@ if __name__ == '__main__':
     p.add_argument('--batchsize', type=int, default=512, help='batch size')
     p.add_argument('--learning-rate', type=float, default=0.1, help='learning rate')
 
+    p.add_argument('--model-file', type=str)
+
+    p.add_argument('--test-only', type=int, default=0, help='just test model contained in model file')
+
     args = p.parse_args()
     print("ARGS:")
     print(args)
 
-    learn_model(
-        train_path=args.tweet_file,
-        vocab_file=args.vocab,
-        test_path=args.test_file,
-        num_epochs=args.nepochs,
-        batchsize=args.batchsize,
-        learn_rate=args.learning_rate,
-        log_path=args.log_path
-    )
-
-    # root = '/home/kate/F15/semeval16/chars'
-    # vocab = '%s/%s' % (root, 'train.chars.tsv.vocab.pkl')
-    # trainf = '%s/%s' % (root, 'train.chars.tsv')
-    # devf = '%s/%s' % (root, 'dev.chars.tsv')
-    # testf = '%s/%s' % (root, 'test.chars.tsv')
-    #
-    # learn_model(
-    #     train_path=trainf,
-    #     val_path=devf,
-    #     test_path=testf,
-    #     vocab_file=vocab,
-    #     log_path='%s/char_lstm_result' % root
-    # )
-    #
-    # # train, dev, test, V = load_semeval_dataset(trainf, devf, testf, vocab)
+    if args.test_only:
+        test_model(args.model_file,
+                   train_path=args.tweet_file,
+                   vocab_file=args.vocab,
+                   test_path=args.test_file,
+                   log_path=args.log_path
+                   )
+    else:
+        learn_model(
+            train_path=args.tweet_file,
+            vocab_file=args.vocab,
+            test_path=args.test_file,
+            num_epochs=args.nepochs,
+            batchsize=args.batchsize,
+            learn_rate=args.learning_rate,
+            log_path=args.log_path
+        )
 
 
