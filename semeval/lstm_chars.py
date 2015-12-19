@@ -295,7 +295,8 @@ def learn_model(hyparams,
 
     print "Starting Training"
     nbatches = X_train.shape[0] / batchsize
-    valfreq = max(int(nbatches / 32.), 2)  # evaluate every [valfreq] minibatches
+    valfreq = max(int(nbatches / 8.), 2)  # evaluate every [valfreq] minibatches
+    print 'validating every', valfreq, 'batches'
 
     begin_time = time.time()
     best_val_acc = -np.inf

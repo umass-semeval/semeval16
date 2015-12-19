@@ -45,6 +45,7 @@ class HParams(object):
         hps['pool'] = self.pool
         hps['grad_clip'] = self.grad_clip
         hps['optimizer'] = self.optimizer
+        hps['init'] = self.init
         srt = sorted(hps.items(), key=lambda x: x[0])
         head = '========== HPARAMS ========='
         string = head + '\n'
