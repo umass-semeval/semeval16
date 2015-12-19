@@ -25,6 +25,12 @@ Efthymios Kouloumpis, Theresa Wilson, and Johanna Moore.
 \newblock Twitter sentiment analysis: The good the bad and the omg!
 \newblock {\em Icwsm}, 11:538--541, 2011.
 
+\bibitem{li2015tree}
+Jiwei Li, Dan Jurafsky, and Eudard Hovy.
+\newblock When are tree structures necessary for deep learning of
+  representations?
+\newblock {\em arXiv preprint arXiv:1503.00185}, 2015.
+
 \bibitem{mikolov2013efficient}
 Tomas Mikolov, Kai Chen, Greg Corrado, and Jeffrey Dean.
 \newblock Efficient estimation of word representations in vector space.
@@ -36,11 +42,6 @@ Tomas Mikolov, Ilya Sutskever, Kai Chen, Greg~S Corrado, and Jeff Dean.
   compositionality.
 \newblock In {\em Advances in neural information processing systems}, pages
   3111--3119, 2013.
-
-\bibitem{pak2010twitter}
-Alexander Pak and Patrick Paroubek.
-\newblock Twitter as a corpus for sentiment analysis and opinion mining.
-\newblock In {\em LREC}, volume~10, pages 1320--1326, 2010.
 
 \bibitem{tang2014learning}
 Duyu Tang, Furu Wei, Nan Yang, Ming Zhou, Ting Liu, and Bing Qin.
