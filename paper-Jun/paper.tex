@@ -71,49 +71,39 @@ abstract goes here
 
 \section{Introduction}
 % why analysis sentiment expecially twitter
-In the last fewer year, microblogging has become a very popular communication tool in people's social life.
-On microblogging platforms, such as Twitter\footnote{\url{https://twitter.com/}} and Facebook\footnote{\url{https://www.facebook.com/}}, a diverge range of people are attracted to post short sentences, images, and video links to share life issues and opinions.
-This popularity results in enormous amount of information coving a wide range of topics from celebrities to opinions about the brands, products, politicians and social events. 
-Such data is a valuable and efficient source for marketing and social studies, and therefore sentiment analysis on these data have obtained special interest. 
-For example, manufacturing companies may want to know how people like their product (or service), what would people prefer.
+In the last few years, microblogging has become a very popular communication tool in people's social life.
+On microblogging platforms, such as Twitter\footnote{\url{https://twitter.com/}} and Facebook\footnote{\url{https://www.facebook.com/}}, a diverse range of people are attracted to post short sentences, images, and video links to share life issues and opinions.
+This popularity results in enormous amount of information covering a wide range of topics on the brands, products, politics and social events. 
+Such data is a valuable and efficient source for marketing and social studies. 
+Sentiment analysis on these data, which determines the attitude of a user with respect to some topic or product, will provide convincing information. For example, it may help manufacturing companies to know how people like their product (or service), what would people prefer.
+Therefore sentiment analysis on microblogging has obtained special interest. 
 
-We restrict our interest on Twitter sentiment analysis for following reasons: 
-People are posting on various topics on Twitter, thus it is a valuable source of data; Twitter is one of most popular microblogging platform and the number of messages are growing everyday. The collected corp can be arbitrary large; Users of Twitter have various background and have different language conventions It is possible to collect tweets of large diversity in both topics and language model.
-%Some typical examples of tweets are shown in Table \ref{tweet-example}. 
-%
-%\begin{table}[h]
-%	\caption{Examples of typical tweets}
-%	\label{tweet-example}
-%	\begin{center}
-%		\begin{tabular}{l}
-%			\hline
-%			Edelman11 Cant. Wait. \#TheForceAwakens \#starpats \\\hline
-%			JeriLRyan SQUEEEEEEEEEE!!!!! Thank you, @Sphero!!! (And @bonniegrrl, you rock!!)   \\\hline
-%			@appcompany Why haven’t you updated your app? Apple released a new iOS and your app now doesn’t work.\\ \hline
-%		\end{tabular}
-%	\end{center}
-%\end{table}
+In this paper, we focus on using sentiment analysis on Twitter. 
+We restrict our interest on Twitter for the following reasons: 
+People are posting on various topics on Twitter, thus it is a valuable source of data; Twitter is one of the most popular microblogging platform and the number of messages are growing everyday. The collected corp can be arbitrary large; Users of Twitter have various background and have different language conventions. It is possible to collect tweets of wide diversity in both topics and language models.
 
-Compared with traditional blogs, tweets have some unique characteristics: 1. Tweets are short in length. There is a limitation of $140$ words for each tweet; 2. The language used in tweets is very information with misspelling, creative spelling,  new words, slang, and URLs; 3. Emoticons and hashtags are frequently used.
+Although there exist plenty of work on text classification, some unique characteristics of tweets present special challenges for sentiment analysis:
+1. Tweets are short in length. There is a limitation of $140$ words for each tweet; 2. The language used in tweets is very informal with misspelling, creative spelling,  new words, slangs, and URLs; 3. Emotions and hashtags are frequently used.
 
 % what we did
-In this paper, we propose a bi-direction LSTM (Long Short -Term Memory)\cite{hochreiter1997long} method for sentiment analysis. We tried both word-level and character-level features on the bi-direction LSTM model and compare the results with DCNN (Dynamic Convolutional Neural Network) \cite{kalchbrenner2014convolutional}.
+In this paper, we propose a bi-directional Long Short-Term Memory (LSTM) method for sentiment analysis. We tried both word-level and character-level features on the bi-directional LSTM model and compare the results with Dynamic Convolutional Neural Network (DCNN) \cite{kalchbrenner2014convolutional}.
 We show that the accuracy of sentiment analysis ... (Please revise this part.)
 
-We train our model on $1.6$M distantly-supervised tweets collected by Go et. al. \cite{go2009twitter}, and evaluate the result on SemEval-2016 Task 4. Currently we focus on polarity classification, and plan to apply our model on 5-point scale classification in the future. 
+We train our model on $1.6$ M distantly-supervised tweets collected by Go et. al. \cite{go2009twitter}, and evaluate the results on SemEval-2016 Task 4\footnote{\url{http://alt.qcri.org/semeval2016/task4/}}. Currently we focus on polarity classification, and plan to apply our model on 5-point scale classification in the future. 
 
 % the structure of the paper
-In the remaining of this paper, we first introduce the related work, the dataset, and the evaluation methodology. We then describe the model we proposed. Finally, we discuss the experiment results and point to possible directions for future research. (Please revise this part.)
+In the remaining of this paper, we first introduce the related work, the dataset, and the evaluation methodology. We then describe the model we proposed. Finally, we discuss the experiment results and point out possible directions for future research. (Please revise this part.)
 
 \section{Related Work}
 Twitter sentiment analysis is increasingly drawing attention of researchers in recent years. 
 Given the length limitations on tweets, sentiment analysis of tweets is often considered similar to sentence-level sentiment analysis \cite{kouloumpis2011twitter}.
-However, phrase and sentence level approaches can hardly define the sentiment of some specific topic. Considering opinions adhering on different topics, Wang et. al.\cite{wang2011topic} proposed a hashtag-level sentiment classification method  to generate the overall sentiment polarity for a given hashtag.
-Recently, following the work of \cite{mikolov2013efficient} some researchers employed neural network to implement sentiment classification. 
-For example, Kim \cite{kim2014convolutional} adopted convolutional neural networks to learn sentiment-bearing sentence vectors, Mikolov et al.\cite{mikolov2013distributed} proposed Paragraph vector which outperformed bag-of-words model for sentiment analysis, and Tang et. al. \cite{tang2014learning} used ConvNets to learn sentiment specific word embedding (SSWE), which encodes sentiment information in the continuous
+However, phrase and sentence level approaches can hardly define the sentiment of some specific topics. Considering opinions adhering on different topics, Wang et. al. \cite{wang2011topic} proposed a hashtag-level sentiment classification method  to generate the overall sentiment polarity for a given hashtag.
+Recently, following the work of \cite{mikolov2013efficient} some researchers used neural network to implement sentiment classification. 
+For example, Kim \cite{kim2014convolutional} adopted convolutional neural networks to learn sentiment-bearing sentence vectors, Mikolov et al. \cite{mikolov2013distributed} proposed Paragraph vector which outperformed bag-of-words model for sentiment analysis, and Tang et. al. \cite{tang2014learning} used ConvNets to learn sentiment specific word embedding (SSWE), which encodes sentiment information in the continuous
 representation of words.
 Furthermore, Kalchbrenner \cite{kalchbrenner2014convolutional} proposed a Dynamic Convolutional Neural Network (DCNN) which uses dynamic k-max pooling, a global pooling operation over linear sequences.
-Instead of directly applying ConvNets to embeddings of words, \cite{zhang2015character} apply the network only on characters. They showed that the deep ConvNets do not require knowledge of words and thus can work for different languages.
+Instead of directly applying ConvNets to embeddings of words, \cite{zhang2015character} applies the network only on characters. They showed that the deep ConvNets does not require knowledge of words and thus can work for different languages.
+LSTM \cite{hochreiter1997long} is another state-of-the-art semantic composition models for sentiment classification \cite{li2015tree}. Similar to DCNN, it also learns fixed-length vectors for sentences of varying length, captures words order in a sentence and does not depend on external dependency or constituency parse results.
 
 
 \section{Model}
