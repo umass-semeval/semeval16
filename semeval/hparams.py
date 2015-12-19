@@ -8,7 +8,8 @@ class HParams(object):
                  embedding_dim=50,
                  pool='mean',
                  grad_clip=100,
-                 optimizer='adam'):
+                 optimizer='adam',
+                 init='random'):
         
         self.nepochs = nepochs
         self.batchsize = batchsize
@@ -19,6 +20,7 @@ class HParams(object):
         self.pool = pool
         self.grad_clip = grad_clip
         self.optimizer = optimizer
+        self.init = init
     
     def parse_args(self, args):        
         self.nepochs = args.nepochs
@@ -30,6 +32,7 @@ class HParams(object):
         self.pool = args.pool
         self.grad_clip = args.grad_clip
         self.optimizer = args.optimizer
+        self.init = args.init
         
     def __repr__(self):
         hps = {}

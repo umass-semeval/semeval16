@@ -33,6 +33,7 @@ def build_model(hyparams,
     bidirectional = hyparams.bidirectional
     pool = hyparams.pool
     grad_clip = hyparams.grad_clip
+    init = hyparams.init
 
     net = OrderedDict()
 
@@ -44,7 +45,6 @@ def build_model(hyparams,
         W_hid=lasagne.init.Orthogonal(),
         b=lasagne.init.Constant(0.)
     )
-
     cell_params = layer.recurrent.Gate(
         W_in=lasagne.init.Orthogonal(),
         W_hid=lasagne.init.Orthogonal(),
@@ -96,19 +96,46 @@ def build_model(hyparams,
     else:
         net['pool'] = layer.ConcatLayer([net['fwd1']])
     net['dropout1'] = layer.DropoutLayer(net['pool'], p=0.5)
-    net['fwd2'] = layer.LSTMLayer(
-        net['dropout1'],
-        num_units=nhidden,
-        grad_clipping=grad_clip,
-        nonlinearity=lasagne.nonlinearities.tanh,
-        mask_input=net['mask'],
-        ingate=gate_params,
-        forgetgate=gate_params,
-        cell=cell_params,
-        outgate=gate_params,
-        learn_init=True,
-        only_return_final=True
-    )
+    if init == 'identity':
+        gate_params2 = layer.recurrent.Gate(
+            W_in=np.eye(nhidden, dtype=np.float32),
+            W_hid=np.eye(nhidden, dtype=np.float32),
+            b=lasagne.init.Constant(0.)
+        )
+        cell_params2 = layer.recurrent.Gate(
+            W_in=np.eye(nhidden, dtype=np.float32),
+            W_hid=np.eye(nhidden, dtype=np.float32),
+            W_cell=None,
+            b=lasagne.init.Constant(0.),
+            nonlinearity=lasagne.nonlinearities.rectify
+        )
+        net['fwd2'] = layer.LSTMLayer(
+            net['dropout1'],
+            num_units=nhidden,
+            grad_clipping=grad_clip,
+            nonlinearity=lasagne.nonlinearities.tanh,
+            mask_input=net['mask'],
+            ingate=gate_params2,
+            forgetgate=gate_params2,
+            cell=cell_params2,
+            outgate=gate_params2,
+            learn_init=True,
+            only_return_final=True
+        )
+    else:
+        net['fwd2'] = layer.LSTMLayer(
+            net['dropout1'],
+            num_units=nhidden,
+            grad_clipping=grad_clip,
+            nonlinearity=lasagne.nonlinearities.tanh,
+            mask_input=net['mask'],
+            ingate=gate_params,
+            forgetgate=gate_params,
+            cell=cell_params,
+            outgate=gate_params,
+            learn_init=True,
+            only_return_final=True
+        )
     net['dropout2'] = layer.DropoutLayer(net['fwd2'], p=0.6)
     net['softmax'] = layer.DenseLayer(
         net['dropout2'],
@@ -518,6 +545,7 @@ if __name__ == '__main__':
     p.add_argument('--pool', type=str, default='mean', help='pooling strategy')
     p.add_argument('--grad-clip', type=int, default=100, help='gradient clipping')
     p.add_argument('--optimizer', type=str, default='adam', help='optimizer')
+    p.add_argument('--init', type=str, default='random', help='initialization')
 
     # switches
     p.add_argument('--test-only', type=int, default=0, help='just test model contained in model file')
