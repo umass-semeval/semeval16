@@ -1,6 +1,7 @@
 \documentclass{article} % For LaTeX2e
 \usepackage{nips15submit_e,times}
 \usepackage{hyperref}
+\usepackage{graphicx}
 \usepackage{url}
 %\documentstyle[nips14submit_09,times,art10]{article} % For LaTeX 2.09
 \newcommand\BibTeX{B{\sc ib}\TeX}
@@ -107,7 +108,17 @@ This is a figure:
 \begin{figure}[h]
 \begin{center}
 %\framebox[4.0in]{$\;$}
-\fbox{\rule[-.5cm]{0cm}{4cm} \rule[-.5cm]{4cm}{0cm}}
+\includegraphics[width=0.95\textwidth]{figs/cool}
+%\fbox{\rule[-.5cm]{0cm}{4cm} \rule[-.5cm]{4cm}{0cm}}
+\end{center}
+\caption{Sample figure caption.}
+\end{figure}
+
+\begin{figure}[h]
+\begin{center}
+%\framebox[4.0in]{$\;$}
+\includegraphics[width=0.95\textwidth]{figs/puppies}
+%\fbox{\rule[-.5cm]{0cm}{4cm} \rule[-.5cm]{4cm}{0cm}}
 \end{center}
 \caption{Sample figure caption.}
 \end{figure}
