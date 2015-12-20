@@ -1,0 +1,147 @@
+\begin{thebibliography}{10}
+
+\bibitem{ballesteros2015improved}
+Miguel Ballesteros, Chris Dyer, and Noah~A Smith.
+\newblock Improved transition-based parsing by modeling characters instead of
+  words with lstms.
+\newblock {\em arXiv preprint arXiv:1508.00657}, 2015.
+
+\bibitem{bollen2011twitter}
+Johan Bollen, Huina Mao, and Xiaojun Zeng.
+\newblock Twitter mood predicts the stock market.
+\newblock {\em Journal of Computational Science}, 2(1):1--8, 2011.
+
+\bibitem{bollen2009modeling}
+Johan Bollen, Alberto Pepe, and Huina Mao.
+\newblock Modeling public mood and emotion: Twitter sentiment and
+  socio-economic phenomena.
+\newblock {\em arXiv preprint arXiv:0911.1583}, 2009.
+
+\bibitem{go2009twitter}
+Alec Go, Richa Bhayani, and Lei Huang.
+\newblock Twitter sentiment classification using distant supervision.
+\newblock {\em CS224N Project Report, Stanford}, 1:12, 2009.
+
+\bibitem{graves2012supervised}
+Alex Graves et~al.
+\newblock {\em Supervised sequence labelling with recurrent neural networks},
+  volume 385.
+\newblock Springer, 2012.
+
+\bibitem{hochreiter2001gradient}
+Sepp Hochreiter, Yoshua Bengio, Paolo Frasconi, and J{\"u}rgen Schmidhuber.
+\newblock {\em Gradient flow in recurrent nets: the difficulty of learning
+  long-term dependencies}.
+\newblock A field guide to dynamical recurrent neural networks. IEEE Press,
+  2001.
+
+\bibitem{hochreiter1997long}
+Sepp Hochreiter and J{\"{u}}rgen Schmidhuber.
+\newblock {Long short-term memory}.
+\newblock {\em Neural computation}, 9(8):1735--1780, 1997.
+
+\bibitem{kalchbrenner2014convolutional}
+Nal Kalchbrenner, Edward Grefenstette, and Phil Blunsom.
+\newblock {A convolutional neural network for modelling sentences}.
+\newblock {\em arXiv preprint arXiv:1404.2188}, 2014.
+
+\bibitem{karpathy-rnn}
+Andrej Karpathy.
+\newblock The unreasonable effectiveness of recurrent neural networks.
+\newblock \url{http://karpathy.github.io/2015/05/21/rnn-effectiveness/}.
+
+\bibitem{kim2014convolutional}
+Yoon Kim.
+\newblock Convolutional neural networks for sentence classification.
+\newblock {\em arXiv preprint arXiv:1408.5882}, 2014.
+
+\bibitem{kim2015character}
+Yoon Kim, Yacine Jernite, David Sontag, and Alexander~M Rush.
+\newblock Character-aware neural language models.
+\newblock {\em arXiv preprint arXiv:1508.06615}, 2015.
+
+\bibitem{kingma2014adam}
+Diederik Kingma and Jimmy Ba.
+\newblock Adam: A method for stochastic optimization.
+\newblock {\em arXiv preprint arXiv:1412.6980}, 2014.
+
+\bibitem{kouloumpis2011twitter}
+Efthymios Kouloumpis, Theresa Wilson, and Johanna Moore.
+\newblock Twitter sentiment analysis: The good the bad and the omg!
+\newblock {\em Icwsm}, 11:538--541, 2011.
+
+\bibitem{li2015tree}
+Jiwei Li, Dan Jurafsky, and Eudard Hovy.
+\newblock When are tree structures necessary for deep learning of
+  representations?
+\newblock {\em arXiv preprint arXiv:1503.00185}, 2015.
+
+\bibitem{ling2015finding}
+Wang Ling, Tiago Lu{\'\i}s, Lu{\'\i}s Marujo, Ram{\'o}n~Fernandez Astudillo,
+  Silvio Amir, Chris Dyer, Alan~W Black, and Isabel Trancoso.
+\newblock Finding function in form: Compositional character models for open
+  vocabulary word representation.
+\newblock {\em arXiv preprint arXiv:1508.02096}, 2015.
+
+\bibitem{ling2015character}
+Wang Ling, Isabel Trancoso, Chris Dyer, and Alan~W Black.
+\newblock Character-based neural machine translation.
+\newblock {\em arXiv preprint arXiv:1511.04586}, 2015.
+
+\bibitem{mehrotra2013improving}
+Rishabh Mehrotra, Scott Sanner, Wray Buntine, and Lexing Xie.
+\newblock Improving lda topic models for microblogs via tweet pooling and
+  automatic labeling.
+\newblock In {\em Proceedings of the 36th international ACM SIGIR conference on
+  Research and development in information retrieval}, pages 889--892. ACM,
+  2013.
+
+\bibitem{mikolov2013efficient}
+Tomas Mikolov, Kai Chen, Greg Corrado, and Jeffrey Dean.
+\newblock Efficient estimation of word representations in vector space.
+\newblock {\em arXiv preprint arXiv:1301.3781}, 2013.
+
+\bibitem{mikolov2013distributed}
+Tomas Mikolov, Ilya Sutskever, Kai Chen, Greg~S Corrado, and Jeff Dean.
+\newblock Distributed representations of words and phrases and their
+  compositionality.
+\newblock In {\em Advances in neural information processing systems}, pages
+  3111--3119, 2013.
+
+\bibitem{o2010tweets}
+Brendan O'Connor, Ramnath Balasubramanyan, Bryan~R Routledge, and Noah~A Smith.
+\newblock From tweets to polls: Linking text sentiment to public opinion time
+  series.
+\newblock {\em ICWSM}, 11(122-129):1--2, 2010.
+
+\bibitem{colah}
+Christopher Olah.
+\newblock Understanding lstm networks.
+\newblock \url{http://colah.github.io/posts/2015-08-Understanding-LSTMs/}.
+
+\bibitem{severynunitn}
+Aliaksei Severyn and Alessandro Moschitti.
+\newblock Unitn: Training deep convolutional neural network for twitter
+  sentiment classification.
+
+\bibitem{tang2014learning}
+Duyu Tang, Furu Wei, Nan Yang, Ming Zhou, Ting Liu, and Bing Qin.
+\newblock {Learning sentiment-specific word embedding for twitter sentiment
+  classification}.
+\newblock In {\em Proceedings of the 52nd Annual Meeting of the Association for
+  Computational Linguistics}, volume~1, pages 1555--1565, 2014.
+
+\bibitem{wang2011topic}
+Xiaolong Wang, Furu Wei, Xiaohua Liu, Ming Zhou, and Ming Zhang.
+\newblock Topic sentiment analysis in twitter: a graph-based hashtag sentiment
+  classification approach.
+\newblock In {\em Proceedings of the 20th ACM international conference on
+  Information and knowledge management}, pages 1031--1040. ACM, 2011.
+
+\bibitem{zhang2015character}
+Xiang Zhang, Junbo Zhao, and Yann LeCun.
+\newblock {Character-level convolutional networks for text classification}.
+\newblock In {\em Advances in Neural Information Processing Systems}, pages
+  649--657, 2015.
+
+\end{thebibliography}
