@@ -110,7 +110,9 @@ test  & 177               & 182               & 286            & 886           \
 \subsection{Experiments}
 We compare the performance of character-level models against word-level models. For the former, we compare across character sets (``utf8'' and ``ascii''), parameter initializations (``rnd'' and ``eye''), and embedding dimension sizes ($50$ and $200$). The vocabulary for the ``utf8'' setting consisted of $1949$ characters, and for ``ascii'' consisted of $93$ characters. We initialize model parameters randomly at all levels in the ``rnd'' setting whereas in the ``eye'' setting, we initialize the second-level LSTM cell and gate parameters using the identity matrix.
 
-For the latter, we compare initializing the word embeddings using random vectors (``word/rnd'') against initialization using the embeddings provided in \cite{tang2014learning} (``word/sswe'').
+We compare word-level models under two settings: initializing the word embeddings using random vectors (``word/rnd'') and initialization using the embeddings provided in \cite{tang2014learning} (``word/sswe'').
+
+We train all models using the implementation of the Adam algorithm \cite{kigma2014adam} provided in Lasagne \cite{lasagne} and a learning rate set to $0.1$ \footnote{We retrained the ascii/rnd/200 on SemEval using AdaGrad and a learning rate of $0.01$ to achieve $84.13$; using Adam and $0.1$ learning rate, the result was $83.21$}. 
 
 \begin{table}[h!]
 \centering
@@ -130,10 +132,17 @@ word/sswe     & 83.24          & 79.27   \\
 \end{tabular}
 \end{table}
 
+The character-level models using the ``ascii'' character set outperformed the other models. It is worth noting that the ``utf8'' model performaed comparably despite having a much larger vocabulary size. It is not suprising that the ``utf8'' model performed worse than the ``ascii'' model, as the test data consisted of only English tweets; however, since the ``utf8'' model is implicitly multi-lingual, our results suggest that the same model may perform well across multiple languages. We leave such experiments for future work.
+
 \subsection{Analysis}
+Figure ~\ref{fig:cool} shows the effect of character repetition on model confidence over the course of the sequence, where confidence is computed using the softmax function:
 
+$$P(y = j|\mathbf{x}) = \frac{e^{\mathbf{x}^T \mathbf{w}_j}}{\sum_{k=1}^{K} e^{\mathbf{x}^T \mathbf{w}_k}}$$
 
-\begin{figure}[h]
+In our experiments, we had $K = 2$ corresponding to binary classification between ``positive'' and ``negative'' tweets. Sequences ending in periods (``cool.'', ``coool.'') ended up with less-confident scores than tweets not ending in periods. Repeated exclamation points don't increase the model's confidence in the ``positive'' label as much as might be expected. 
+
+\begin{figure}[h!]
+\label{fig:cool}
 \begin{center}
 %\framebox[4.0in]{$\;$}
 \includegraphics[width=0.95\textwidth]{figs/cool}
@@ -142,7 +151,10 @@ word/sswe     & 83.24          & 79.27   \\
 \caption{Sample figure caption.}
 \end{figure}
 
-\begin{figure}[h]
+Figure ~\ref{fig:puppies} shows that the character-level model learns word meaning at a lexical level: the predictions for ``I love puppies'' and ``I hate puppies'' diverges sharply after the model has finished reading ``lov'' (``love'') and ``hat'' (``hate'').
+
+\begin{figure}[h!]
+\label{fig:puppies}
 \begin{center}
 %\framebox[4.0in]{$\;$}
 \includegraphics[width=0.95\textwidth]{figs/puppies}
@@ -151,16 +163,10 @@ word/sswe     & 83.24          & 79.27   \\
 \caption{Sample figure caption.}
 \end{figure}
 
-\begin{figure}[h]
-\begin{center}
-%\framebox[4.0in]{$\;$}
-\includegraphics[width=0.95\textwidth]{figs/cool}
-%\fbox{\rule[-.5cm]{0cm}{4cm} \rule[-.5cm]{4cm}{0cm}}
-\end{center}
-\caption{Sample figure caption.}
-\end{figure}
+Figure ~\ref{fig:dentist} provides further evidence that character-level models can reason about lexical semantics in an intuitive fashion. We compare confidence contours across four tweets from the Go test set. The ground truth labels for the first two tweets are both ``negative'', and for the second two are both ``positive''. In the first two, the model finds strong evidence for a ``negative'' prediction before reaching the word ``dentist'', and correctly predicts that both tweets are ``negative''. In the second two, the word ``dentist'' results in an increase in the model's confidence in a ``negative'' prediction; however, the words ``enjoyable'' and ``:)'' cause the model's confidence to decrease in the ``positive'' direction. 
 
-\begin{figure}[h]
+\begin{figure}[h!]
+\label{fig:dentist}
 \begin{center}
 %\framebox[4.0in]{$\;$}
 \includegraphics[width=0.95\textwidth]{figs/dentist}
