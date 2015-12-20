@@ -187,7 +187,7 @@ We conduct our experiments on two datasets: the latest benchmark dataset for Sem
 \caption{Data size and label distribution}
 \begin{tabular}{|lllll|}
 \hline
-      & \multicolumn{2}{l}{Go et. al. (1.6M)} & \multicolumn{2}{l}{SemEval2016} \\
+      & \multicolumn{2}{l}{Go et. al. (1.6M)} & \multicolumn{2}{l|}{SemEval2016} \\
       & neg               & pos               & neg            & pos            \\
 \hline
 train & 800000            & 800000            & 781            & 2805           \\
@@ -275,7 +275,7 @@ Figure ~\ref{fig:dentist} provides further evidence that character-level models 
 \label{fig:dentist}
 \end{figure}
 
-Figure ~\ref{fig:basketball} shows that our model learns the effect of negation.
+Figure ~\ref{fig:basketball} shows that our model learns the effect of negation. The confidence in positive prediction falls sharply when after the model reads the first two characters of the negation ``not". Similarly, the confidence also falls after reading the suffix ``n't" which negates the meaning of the auxiliary verb.
 
 \begin{figure}[h!]
 \begin{center}
@@ -288,9 +288,8 @@ Figure ~\ref{fig:basketball} shows that our model learns the effect of negation.
 \end{figure}
 
 
-To further analyze whether related spellings or variants of a word are mapped to nearby points in the final encoding, we fed as input individual words (from the dataset vocabulary) to the character input LSTM model and obtained the encoding of the word after the last layer (before the softmax).
-We then find the closest neighbors of every word in the encoding space.
-Table ~\ref{table:word-sim} shows words alongside their top nearest neighbors where closeness is measured by cosine similarity. As desired, orthographic variations of the same word ``type'' are close together in the embedding space. In particular, it is worth noting that "woohoo" with different number of ``o'' are all close. Similarly, the word "sowwy" which is a common way of saying ``sorry" in such informal conversations is also close to the correct word.
+Table ~\ref{table:word-sim} shows that related spellings or variants of a word are mapped to nearby points in the final encoding. The word encodings are obtained by feeding as input individual words (from the dataset vocabulary) to the character input LSTM model and obtaining the encoding of the words at the last layer (before the softmax).
+We then find the closest neighbors of every word in this encoding space, where closeness is measured by cosine similarity. As desired, orthographic variations of the same word ``type'' are close together in the encoding space. In particular, it is worth noting that "woohoo" with different number of ``o'' are all close. Similarly, the word "sowwy" which is a common way of saying ``sorry" in such informal conversations is also close to the correct word.
 
 \begin{table}[h!]
 \begin{center}
