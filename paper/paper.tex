@@ -84,23 +84,29 @@ In this paper, we focus on using sentiment analysis on Twitter.
 Twitter is an extremely popular microblogging platform which allows people to post messages of up to 140 characters.
 Because of the short nature of tweets, people often post twitter messages (called Tweets) frequently while attending events like product launches, movie premiers, music concerts or just to express their opinion on a trending or current topic.
 As such, they can be a valuable source of public opinion or feedback \cite{o2010tweets, bollen2011twitter, bollen2009modeling}.
-
 Realizing this importance, analyzing sentiment of Tweets has been a recurring task in the SemEval \footnote{\url{http://alt.qcri.org/semeval2016/task4/}} competitions.
 
 %We restrict our interest on Twitter for the following reasons: 
 %People are posting on various topics on Twitter, thus it is a valuable source of data; Twitter is one of the most popular microblogging platform and the number of messages are growing everyday. The collected corpus can be arbitrary large. Users of Twitter have various background and have different language conventions. It is possible to collect tweets of wide diversity in both topics and language models.
 
-Although there exist plenty of work on text classification, some unique characteristics of tweets present special challenges for sentiment analysis:
-1. Tweets are short in length. There is a limitation of $140$ words for each tweet; 2. The language used in tweets is very informal with misspelling, creative spelling,  new words, slangs, and URLs; 3. Emotions and hashtags are frequently used.
+Although there exists plenty of work on text classification, some unique characteristics of tweets present special challenges for sentiment analysis:
+1) Tweets are short in length. There is a limitation of $140$ words for each tweet which makes analyzing them challenging \cite{mehrotra2013improving}; 2) The language used in tweets is very informal with misspellings (often intentional, like different spellings of "cool": coool, coolll, coooolll!!), new words, slangs, and URLs;
+3) The number of tweets increases at a very fast pace, and with new data comes new words, new trends in using abbreviations, which lead to a frequent problem of out-of-vocabulary words
+4) Special symbols and their combinations are often used, like emoticons and hashtags.
 
 % what we did
-In this paper, we propose a bi-directional Long Short-Term Memory (LSTM) method for sentiment analysis. We tried both word-level and character-level features on the bi-directional LSTM model and compare the results with Dynamic Convolutional Neural Network (DCNN) \cite{kalchbrenner2014convolutional}.
-We show that the accuracy of sentiment analysis ... (Please revise this part.)
+Keeping in view the challenges posed by the nature of tweets, 
+in this paper, we propose to use bi-directional Long Short-Term Memory (LSTM) 
+networks which operate at {\it character-level input} and make predictions at the tweet-level. Such networks naturally handle the problem of very large vocabulary sizes and the presence of sub-word information, without having to keep many trained embedding which would result from keeping very large vocabularies.
+We find that the model interestingly performs {\bf better} than equivalent LSTM model which operates at the word level (even when initialized with a variety of pre-trained embeddings).
+We also compare our results with Dynamic Convolutional Neural Network (DCNN) \cite{kalchbrenner2014convolutional} which has shown state of the art performance on Twitter sentiment classification \cite{severynunitn}.
+We explore the properties of the character LSTM model and find that it learns to find meaning in composition of characters and can effectively relate sub-word information (like presence of multiple exclamation marks) to the sentiment of the tweet.
 
-We train our model on $1.6$ M distantly-supervised tweets collected by Go et. al. \cite{go2009twitter}, and evaluate the results on SemEval-2016 Task 4\footnote{\url{http://alt.qcri.org/semeval2016/task4/}}. Currently we focus on polarity classification, and plan to apply our model on 5-point scale classification in the future. 
+
+%We train our model on $1.6$ M distantly-supervised tweets collected by Go et. al. \cite{go2009twitter}, and evaluate the results on SemEval-2016 Task 4. Currently we focus on polarity classification, and plan to apply our model on 5-point scale classification in the future. 
 
 % the structure of the paper
-In the remaining of this paper, we first introduce the related work, the dataset, and the evaluation methodology. We then describe the model we proposed. Finally, we discuss the experiment results and point out possible directions for future research. (Please revise this part.)
+
 
 \section{Related Work}
 Twitter sentiment analysis is increasingly drawing attention of researchers in recent years. 
@@ -290,7 +296,7 @@ Table ~\ref{table:word-sim} shows words alongside their nearest neighbors comput
 \begin{tabular}{|l|l|}
 \hline
 woohoo &    wooohoo woohooo wooohooo woohoooo wooooo whoooo woooo whoohoo \\
-wohooo
+wohooo\
 woww &   wowww wow whack vwv waw vry cow werk woke \\
 xoxo &    xox xoxox zoo xxoo vox xoxoxo zoe xxo twix \\
 thanks &    thankss thanku yanks thankx hanks thankz thanksss tanks thanx \\
