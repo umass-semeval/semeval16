@@ -1,5 +1,7 @@
 \BOOKMARK [1][-]{section.1}{Introduction}{}% 1
 \BOOKMARK [1][-]{section.2}{Related Work}{}% 2
-\BOOKMARK [1][-]{section.3}{Model}{}% 3
-\BOOKMARK [1][-]{section.4}{Experiments}{}% 4
-\BOOKMARK [1][-]{section.5}{Conclusion}{}% 5
+\BOOKMARK [2][-]{subsection.2.1}{Dynamic Convolutional Neural Networks \(DCNN\)}{section.2}% 3
+\BOOKMARK [2][-]{subsection.2.2}{Recurrent Neural Networks with Long Short Term Memory \(LSTM\)}{section.2}% 4
+\BOOKMARK [1][-]{section.3}{Twitter Sentiment Analysis using LSTM}{}% 5
+\BOOKMARK [1][-]{section.4}{Experiments}{}% 6
+\BOOKMARK [1][-]{section.5}{Conclusion}{}% 7

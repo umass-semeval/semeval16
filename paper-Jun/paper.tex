@@ -2,6 +2,8 @@
 \usepackage{nips15submit_e,times}
 \usepackage{hyperref}
 \usepackage{url}
+\usepackage{graphicx}
+\usepackage{amsmath}
 %\documentstyle[nips14submit_09,times,art10]{article} % For LaTeX 2.09
 \newcommand\BibTeX{B{\sc ib}\TeX}
 
@@ -79,8 +81,13 @@ Sentiment analysis on microblogging has obtained special interest, because it de
 For example, it may help manufacturing companies to know how people like their product (or service), what would people prefer.  
 
 In this paper, we focus on using sentiment analysis on Twitter. 
-We restrict our interest on Twitter for the following reasons: 
-People are posting on various topics on Twitter, thus it is a valuable source of data; Twitter is one of the most popular microblogging platform and the number of messages are growing everyday. The collected corp can be arbitrary large; Users of Twitter have various background and have different language conventions. It is possible to collect tweets of wide diversity in both topics and language models.
+Twitter is an extremely popular microblogging platform which allows people to post messages of up to 140 characters.
+Because of the short nature of tweets, people often post twitter messages (called Tweets) frequently while attending events like product launches, movie premiers, music concerts or just to express their opinion on a trending or current topic.
+As such, they can be a valuable source of public opinion or feedback \cite{o2010tweets, bollen2011twitter, bollen2009modeling}.
+Realizing this importance, analyzing sentiment of Tweets has been a recurring task in the SemEval \footnote{\url{http://alt.qcri.org/semeval2016/task4/}} competitions.
+
+%We restrict our interest on Twitter for the following reasons: 
+%People are posting on various topics on Twitter, thus it is a valuable source of data; Twitter is one of the most popular microblogging platform and the number of messages are growing everyday. The collected corpus can be arbitrary large. Users of Twitter have various background and have different language conventions. It is possible to collect tweets of wide diversity in both topics and language models.
 
 Although there exist plenty of work on text classification, some unique characteristics of tweets present special challenges for sentiment analysis:
 1. Tweets are short in length. There is a limitation of $140$ words for each tweet; 2. The language used in tweets is very informal with misspelling, creative spelling,  new words, slangs, and URLs; 3. Emotions and hashtags are frequently used.
@@ -105,8 +112,58 @@ Furthermore, Kalchbrenner \cite{kalchbrenner2014convolutional} proposed a Dynami
 Instead of directly applying ConvNets to embeddings of words, \cite{zhang2015character} applies the network only on characters. They showed that the deep ConvNets does not require knowledge of words and thus can work for different languages.
 LSTM \cite{hochreiter1997long} is another state-of-the-art semantic composition models for sentiment classification \cite{li2015tree}. Similar to DCNN, it also learns fixed-length vectors for sentences of varying length, captures words order in a sentence and does not depend on external dependency or constituency parse results.
 
+\subsection{Dynamic Convolutional Neural Networks (DCNN)}
+We briefly review the architecture of DCNN \cite{kalchbrenner2014convolutional} which has shown state of the art performance for sentiment classification on Twitter. The winning entry for SemEval15 \cite{severynunitn} task on Twitter sentiment classification also used DCNN. Figure \ref{fig:dcnn} summarizes the architecture.
 
-\section{Model}
+When used for sentiment classification on Twitter, the input to the DCNN is a matrix of word embeddings for each word in the tweet. For example, if the tweet consists of $s$ words then the input to the DCCNN is:
+\begin{flalign*}
+	S = 
+	\begin{bmatrix}
+	| & | & \ldots & | \\
+	w_1 & w_2 & \ldots & w_s \\
+	| & | & \ldots & | \\
+	\end{bmatrix}_{k\times s}
+\end{flalign*}
+where each $w_i \in R^k$ is a $k$-dimensional dense word embedding \cite{mikolov2013distributed}.
+The architecture consists of multiple layers of convolutions and max-pooling on top of the input matrix, followed a fully connected layer which is input to a softmax. The convolutions are of type \emph{wide-convolutions} of one-dimension. For example, for the input matrix $S \in R^{k\times s}$, a wide-convolution filter operating on $S$ will consist of convolution weights $m\in R^{k\times c}$ and will result in a matrix having dimension $k \times (s+c-1)$. Note here $c$ is the convolution filter width, which is a hyperparameter.
+The max-pooling operations presented in \cite{kalchbrenner2014convolutional} are different from the regular max-pooling. They present {\it dynamic $k$-max pooling}. $k$-max pooling takes the top $k$ maximum activations as opposed to just the maximum activation and the value of $k$ is selected dynamically based on the following formula: $k_l = \max \left( k_{top}, 	\lceil \frac{L-l}{L} s\rceil \right)$, where $l$ is number of current convolution layer, $L$ is total number of convolutions and $k_{top}$ is a fixed hyperparameter. 
+Note that while \cite{kalchbrenner2014convolutional} used multiple layers of convolutions and max-pooling, subsequent work found that using a single layer of convolution and max-pooling gives similar results \cite{kim2014convolutional} \cite{severynunitn}.
+
+\begin{figure}
+	\centering
+	\includegraphics[height=4in, width=0.8\textwidth]{figs/DCNN.png}
+	\caption{Dynamic Convulational Neural Network of \cite{kalchbrenner2014convolutional} (Source: \cite{kalchbrenner2014convolutional})}
+	\label{fig:dcnn}
+\end{figure}
+
+\subsection{Recurrent Neural Networks with Long Short Term Memory (LSTM)}
+Recurrent Neural Networks (RNNs) are a class of artificial neural networks used for modeling sequences.
+RNNs are highly flexible in their use of context information as they can learn what part of the input sequence to store to memory and what parts to ignore. They also allow modeling of various regimes of sequence modeling as shown in Figure \ref{fig:rnn}. Please refer to \cite{graves2012supervised} for a comprehensive review of sequence modeling using RNN.
+
+\begin{figure}
+	\centering
+	\includegraphics[width=\textwidth]{figs/rnn.jpeg}
+	\caption{RNNs allow modeling of multiple types of input and output sequences (Source: \cite{karpathy-rnn})}
+	\label{fig:rnn}
+\end{figure}
+
+One of the short comings of RNN is that it is very difficult to store information over long sequences because of problems due to vanishing and exploding gradients as explained in \cite{hochreiter2001gradient}.
+{\it Long Short-Term Memory (LSTM)} \cite{hochreiter1997long} are designed to remedy this and store information over larger input sequences.
+They achieve this using special ``memory cell'' units. 
+Figure \ref{fig:lstm} shows the architecture of this cell which consists of an input gate, a forget gate, an output gate and a recurring cell state. 
+Refer to \cite{colah} for a gentle introduction to LSTM and to \cite{graves2012supervised} for a more comprehensive review and applications.
+
+\begin{figure}
+	\centering
+	\includegraphics[width=\textwidth]{figs/LSTM.png}
+	\caption{The repeating module of LSTM. $x_t$ is the input as time $t$ and $h_t$ is the output from the LSTM output gate at time $t$. The top horizontal line corresponds to the cell state and the bottom line corresponds to the hidden state (both of which are recurring states).
+	(Source: \cite{colah})}
+	\label{fig:lstm}
+\end{figure}
+
+
+\section{Twitter Sentiment Analysis using LSTM}
+
 
 \section{Experiments}
 See Table ~\ref{sample-table} for awesome results

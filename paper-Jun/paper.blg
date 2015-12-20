@@ -1,46 +1,49 @@
-This is BibTeX, Version 0.99d (TeX Live 2013/dev)
+This is BibTeX, Version 0.99d (TeX Live 2015)
 Capacity: max_strings=35307, hash_size=35307, hash_prime=30011
 The top-level auxiliary file: paper.aux
 The style file: plain.bst
 Database file #1: paper.bib
-You've used 11 entries,
+Warning--empty journal in severynunitn
+Warning--empty year in severynunitn
+You've used 19 entries,
             2118 wiz_defined-function locations,
-            558 strings with 6038 characters,
-and the built_in function-call counts, 4365 in all, are:
-= -- 430
-> -- 222
-< -- 5
-+ -- 87
-- -- 76
-* -- 297
-:= -- 705
-add.period$ -- 34
-call.type$ -- 11
-change.case$ -- 71
+            598 strings with 7328 characters,
+and the built_in function-call counts, 6540 in all, are:
+= -- 630
+> -- 344
+< -- 6
++ -- 136
+- -- 116
+* -- 432
+:= -- 1087
+add.period$ -- 57
+call.type$ -- 19
+change.case$ -- 112
 chr.to.int$ -- 0
-cite$ -- 11
-duplicate$ -- 171
-empty$ -- 318
-format.name$ -- 76
-if$ -- 926
+cite$ -- 21
+duplicate$ -- 251
+empty$ -- 486
+format.name$ -- 116
+if$ -- 1367
 int.to.chr$ -- 0
-int.to.str$ -- 11
-missing$ -- 11
-newline$ -- 58
-num.names$ -- 22
-pop$ -- 76
+int.to.str$ -- 19
+missing$ -- 19
+newline$ -- 97
+num.names$ -- 38
+pop$ -- 134
 preamble$ -- 1
-purify$ -- 60
+purify$ -- 95
 quote$ -- 0
-skip$ -- 137
+skip$ -- 196
 stack$ -- 0
-substring$ -- 269
-swap$ -- 58
-text.length$ -- 5
+substring$ -- 336
+swap$ -- 66
+text.length$ -- 6
 text.prefix$ -- 0
 top$ -- 0
-type$ -- 44
-warning$ -- 0
-while$ -- 39
-width$ -- 13
-write$ -- 121
+type$ -- 72
+warning$ -- 2
+while$ -- 59
+width$ -- 21
+write$ -- 199
+(There were 2 warnings)

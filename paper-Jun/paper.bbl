@@ -1,9 +1,33 @@
 \begin{thebibliography}{10}
 
+\bibitem{bollen2011twitter}
+Johan Bollen, Huina Mao, and Xiaojun Zeng.
+\newblock Twitter mood predicts the stock market.
+\newblock {\em Journal of Computational Science}, 2(1):1--8, 2011.
+
+\bibitem{bollen2009modeling}
+Johan Bollen, Alberto Pepe, and Huina Mao.
+\newblock Modeling public mood and emotion: Twitter sentiment and
+  socio-economic phenomena.
+\newblock {\em arXiv preprint arXiv:0911.1583}, 2009.
+
 \bibitem{go2009twitter}
 Alec Go, Richa Bhayani, and Lei Huang.
 \newblock Twitter sentiment classification using distant supervision.
 \newblock {\em CS224N Project Report, Stanford}, 1:12, 2009.
+
+\bibitem{graves2012supervised}
+Alex Graves et~al.
+\newblock {\em Supervised sequence labelling with recurrent neural networks},
+  volume 385.
+\newblock Springer, 2012.
+
+\bibitem{hochreiter2001gradient}
+Sepp Hochreiter, Yoshua Bengio, Paolo Frasconi, and J{\"u}rgen Schmidhuber.
+\newblock {\em Gradient flow in recurrent nets: the difficulty of learning
+  long-term dependencies}.
+\newblock A field guide to dynamical recurrent neural networks. IEEE Press,
+  2001.
 
 \bibitem{hochreiter1997long}
 Sepp Hochreiter and J{\"{u}}rgen Schmidhuber.
@@ -14,6 +38,11 @@ Sepp Hochreiter and J{\"{u}}rgen Schmidhuber.
 Nal Kalchbrenner, Edward Grefenstette, and Phil Blunsom.
 \newblock {A convolutional neural network for modelling sentences}.
 \newblock {\em arXiv preprint arXiv:1404.2188}, 2014.
+
+\bibitem{karpathy-rnn}
+Andrej Karpathy.
+\newblock The unreasonable effectiveness of recurrent neural networks.
+\newblock \url{http://karpathy.github.io/2015/05/21/rnn-effectiveness/}.
 
 \bibitem{kim2014convolutional}
 Yoon Kim.
@@ -42,6 +71,22 @@ Tomas Mikolov, Ilya Sutskever, Kai Chen, Greg~S Corrado, and Jeff Dean.
   compositionality.
 \newblock In {\em Advances in neural information processing systems}, pages
   3111--3119, 2013.
+
+\bibitem{o2010tweets}
+Brendan O'Connor, Ramnath Balasubramanyan, Bryan~R Routledge, and Noah~A Smith.
+\newblock From tweets to polls: Linking text sentiment to public opinion time
+  series.
+\newblock {\em ICWSM}, 11(122-129):1--2, 2010.
+
+\bibitem{colah}
+Christopher Olah.
+\newblock Understanding lstm networks.
+\newblock \url{http://colah.github.io/posts/2015-08-Understanding-LSTMs/}.
+
+\bibitem{severynunitn}
+Aliaksei Severyn and Alessandro Moschitti.
+\newblock Unitn: Training deep convolutional neural network for twitter
+  sentiment classification.
 
 \bibitem{tang2014learning}
 Duyu Tang, Furu Wei, Nan Yang, Ming Zhou, Ting Liu, and Bing Qin.
