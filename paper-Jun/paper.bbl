@@ -60,6 +60,14 @@ Jiwei Li, Dan Jurafsky, and Eudard Hovy.
   representations?
 \newblock {\em arXiv preprint arXiv:1503.00185}, 2015.
 
+\bibitem{mehrotra2013improving}
+Rishabh Mehrotra, Scott Sanner, Wray Buntine, and Lexing Xie.
+\newblock Improving lda topic models for microblogs via tweet pooling and
+  automatic labeling.
+\newblock In {\em Proceedings of the 36th international ACM SIGIR conference on
+  Research and development in information retrieval}, pages 889--892. ACM,
+  2013.
+
 \bibitem{mikolov2013efficient}
 Tomas Mikolov, Kai Chen, Greg Corrado, and Jeffrey Dean.
 \newblock Efficient estimation of word representations in vector space.
