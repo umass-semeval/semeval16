@@ -1,4 +1,4 @@
-This is pdfTeX, Version 3.14159265-2.6-1.40.16 (TeX Live 2015) (preloaded format=pdflatex 2015.5.24)  20 DEC 2015 00:14
+This is pdfTeX, Version 3.14159265-2.6-1.40.16 (TeX Live 2015) (preloaded format=pdflatex 2015.5.24)  20 DEC 2015 00:32
 entering extended mode
  restricted \write18 enabled.
  %&-line parsing enabled.
@@ -348,47 +348,43 @@ LaTeX Font Info:    Try loading font information for OT1+pcr on input line 77.
 
 (/usr/local/texlive/2015/texmf-dist/tex/latex/psnfss/ot1pcr.fd
 File: ot1pcr.fd 2001/06/04 font definitions for OT1/pcr.
-)
-Underfull \vbox (badness 2027) has occurred while \output is active []
-
- [1
+) [1
 
 {/usr/local/texlive/2015/texmf-var/fonts/map/pdftex/updmap/pdftex.map}]
 <figs/DCNN.png, id=81, 367.6134pt x 448.5558pt>
 File: figs/DCNN.png Graphic file (type png)
  <use figs/DCNN.png>
-Package pdftex.def Info: figs/DCNN.png used on input line 136.
+Package pdftex.def Info: figs/DCNN.png used on input line 141.
 (pdftex.def)             Requested size: 318.00365pt x 289.09381pt.
 
 <figs/rnn.jpeg, id=87, 1333.98375pt x 417.56pt>
 File: figs/rnn.jpeg Graphic file (type jpg)
  <use figs/rnn.jpeg>
-Package pdftex.def Info: figs/rnn.jpeg used on input line 147.
+Package pdftex.def Info: figs/rnn.jpeg used on input line 152.
 (pdftex.def)             Requested size: 397.48499pt x 124.41518pt.
-
-<figs/LSTM.png, id=94, 806.89455pt x 303.17265pt>
-File: figs/LSTM.png Graphic file (type png)
- <use figs/LSTM.png>
-Package pdftex.def Info: figs/LSTM.png used on input line 160.
-(pdftex.def)             Requested size: 397.48499pt x 149.34694pt.
  [2]
 [3 <./figs/DCNN.png> <./figs/rnn.jpeg>]
-<figs/mylstm.pdf, id=131, 493.48045pt x 344.16902pt>
+<figs/LSTM.png, id=122, 806.89455pt x 303.17265pt>
+File: figs/LSTM.png Graphic file (type png)
+ <use figs/LSTM.png>
+Package pdftex.def Info: figs/LSTM.png used on input line 165.
+(pdftex.def)             Requested size: 397.48499pt x 149.34694pt.
+ [4 <./figs/LSTM.png>] <figs/mylstm.pdf, id=138, 493.48045pt x 344.16902pt>
 File: figs/mylstm.pdf Graphic file (type pdf)
- <use figs/mylstm.pdf>
-Package pdftex.def Info: figs/mylstm.pdf used on input line 185.
-(pdftex.def)             Requested size: 397.48813pt x 260.17949pt.
 
-[4 <./figs/LSTM.png>] (./paper.bbl [5 <./figs/mylstm.pdf>])
-Package atveryend Info: Empty hook `BeforeClearDocument' on input line 244.
+<use figs/mylstm.pdf>
+Package pdftex.def Info: figs/mylstm.pdf used on input line 190.
+(pdftex.def)             Requested size: 397.48813pt x 260.17949pt.
+ (./paper.bbl [5 <./figs/mylstm.pdf>])
+Package atveryend Info: Empty hook `BeforeClearDocument' on input line 249.
  [6]
-Package atveryend Info: Empty hook `AfterLastShipout' on input line 244.
+Package atveryend Info: Empty hook `AfterLastShipout' on input line 249.
  (./paper.aux)
-Package atveryend Info: Executing hook `AtVeryEndDocument' on input line 244.
-Package atveryend Info: Executing hook `AtEndAfterFileList' on input line 244.
+Package atveryend Info: Executing hook `AtVeryEndDocument' on input line 249.
+Package atveryend Info: Executing hook `AtEndAfterFileList' on input line 249.
 Package rerunfilecheck Info: File `paper.out' has not changed.
 (rerunfilecheck)             Checksum: A2EB3F63A4382A33639AC8B7F62D3B16;473.
-Package atveryend Info: Empty hook `AtVeryVeryEnd' on input line 244.
+Package atveryend Info: Empty hook `AtVeryVeryEnd' on input line 249.
  ) 
 Here is how much of TeX's memory you used:
  6395 strings out of 493089
@@ -410,7 +406,7 @@ texmf-dist/fonts/type1/urw/courier/ucrr8a.pfb></usr/local/texlive/2015/texmf-di
 st/fonts/type1/urw/times/utmb8a.pfb></usr/local/texlive/2015/texmf-dist/fonts/t
 ype1/urw/times/utmr8a.pfb></usr/local/texlive/2015/texmf-dist/fonts/type1/urw/t
 imes/utmri8a.pfb>
-Output written on paper.pdf (6 pages, 796687 bytes).
+Output written on paper.pdf (6 pages, 797014 bytes).
 PDF statistics:
  216 PDF objects out of 1000 (max. 8388607)
  186 compressed objects within 2 object streams
