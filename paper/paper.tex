@@ -68,7 +68,7 @@ Jun Wang
 \maketitle
 
 \begin{abstract}
-abstract goes here
+We show promising empirical evidence that character-level LSTMs perform well for sentiment analysis on tweets, which are ``noisy'', in that users think of millions of new words and spellings of words every day, and ``brief'', in that they are constrained to $140$ characters. This type of text data is becoming an important research focus in the field of NLP, as data is often cheap to collect in high volume and can provide important insight into society-wide trends. Our model achieves $84 \%$ accuracy, a result competitive with the state of the art for binary sentiment classification on tweets.
 \end{abstract}
 
 \section{Introduction}
@@ -170,7 +170,6 @@ We conduct our experiments on two datasets: the latest benchmark dataset for Sem
 \begin{table}[h!]
 \centering
 \caption{Data size and label distribution}
-\label{my-label}
 \begin{tabular}{|lllll|}
 \hline
       & \multicolumn{2}{l}{Go et. al. (1.6M)} & \multicolumn{2}{l}{SemEval2016} \\
@@ -181,6 +180,7 @@ dev   & -                 & -                 & 358            & 766            
 test  & 177               & 182               & 286            & 886           \\
 \hline
 \end{tabular}
+\label{table:corpus}
 \end{table}
 
 \subsection{Experiments}
@@ -191,7 +191,6 @@ We compare word-level models under two settings: initializing the word embedding
 Our results are shown in Table ~\ref{table:results}. We train all models using the implementation of the Adam algorithm \cite{kingma2014adam} provided in Lasagne\footnote{\url{https://github.com/Lasagne/Lasagne}} and a learning rate set to $0.1$ \footnote{We retrained the ascii/rnd/200 on SemEval using AdaGrad and a learning rate of $0.01$ to achieve $84.13$; using Adam and $0.1$ learning rate, the result was $83.21$}. To learn word and character embeddings, we use a bidirectional LSTM with $256$ hidden units, followed by a mean pooling and a dropout layer ($p=0.5$), a second forward-directional LSTM (again with $256$ hidden units) and a final dropout layer ($p=0.6$). We obtain final predictions using the softmax function.
 
 \begin{table}[h!]
-\label{table:results}
 \centering
 \caption{Accuracy across LSTMs}
 \begin{tabular}{|l|ll|}
@@ -208,6 +207,7 @@ word/sswe     & 83.24          & 79.27   \\
 word/dcnn     & \textbf{87.4}\footnote{Reported in \cite{kalchbrenner2014convolutional}}           & 81.3    \\
 \hline
 \end{tabular}
+\label{table:results}
 \end{table}
 
 The character-level models using the ``ascii'' character set outperformed the other models on the SemEval dataset. Due to the highly-productive nature of the Twitter ``lexicon'', users' predisposition toward using slang dialects, and the constraint of the $140$-character limit, it makes sense that word-level models underperform.
@@ -224,44 +224,43 @@ $$P(y = j|\mathbf{x}) = \frac{e^{\mathbf{x}^T \mathbf{w}_j}}{\sum_{k=1}^{K} e^{\
 In our experiments, we had $K = 2$ corresponding to binary classification between ``positive'' and ``negative'' tweets. Sequences ending in periods (``cool.'', ``coool.'') ended up with less-confident scores than tweets not ending in periods. Repeated exclamation points don't increase the model's confidence in the ``positive'' label as much as might be expected. 
 
 \begin{figure}[h!]
-\label{fig:cool}
 \begin{center}
 %\framebox[4.0in]{$\;$}
 \includegraphics[width=0.95\textwidth]{figs/cool}
 %\fbox{\rule[-.5cm]{0cm}{4cm} \rule[-.5cm]{4cm}{0cm}}
 \end{center}
 \caption{Comparison of model confidence for different forms of the word ``cool''}
+\label{fig:cool}
 \end{figure}
 
 Figure ~\ref{fig:puppies} shows that the character-level model learns word meaning at a lexical level: the predictions for ``I love puppies'' and ``I hate puppies'' diverges sharply after the model has finished reading ``lov'' (``love'') and ``hat'' (``hate'').
 
 \begin{figure}[h!]
-\label{fig:puppies}
+
 \begin{center}
 %\framebox[4.0in]{$\;$}
 \includegraphics[width=0.95\textwidth]{figs/puppies}
 %\fbox{\rule[-.5cm]{0cm}{4cm} \rule[-.5cm]{4cm}{0cm}}
 \end{center}
 \caption{Comparison of model confidence for ``I love puppies'' vs. ``I hate puppies''}
+\label{fig:puppies}
 \end{figure}
 
 Figure ~\ref{fig:dentist} provides further evidence that character-level models can reason about lexical semantics in an intuitive fashion. We compare confidence contours across four tweets from the Go test set. The ground truth labels for the first two tweets are both ``negative'', and for the second two are both ``positive''. In the first two, the model finds strong evidence for a ``negative'' prediction before reaching the word ``dentist'', and correctly predicts that both tweets are ``negative''. In the second two, the word ``dentist'' results in an increase in the model's confidence in a ``negative'' prediction; however, the words ``enjoyable'' and ``:)'' cause the model's confidence to decrease in the ``positive'' direction. 
 
 \begin{figure}[h!]
-\label{fig:dentist}
+
 \begin{center}
 %\framebox[4.0in]{$\;$}
 \includegraphics[width=0.95\textwidth]{figs/dentist}
 %\fbox{\rule[-.5cm]{0cm}{4cm} \rule[-.5cm]{4cm}{0cm}}
 \end{center}
 \caption{Confidence in ``negative'' prediction over time across four tweets}
+\label{fig:dentist}
 \end{figure}
 
 \section{Conclusion}
-In this paper, we show promising empirical evidence that character-level models perform well for sentiment analysis on tweets, which are ``noisy'', in that users think of millions of new words and spellings of words every day, and ``brief'', in that they are constrained to $140$ characters. This type of text data is becoming an important research focus in the field of NLP, as data is often cheap to collect in high volume and can provide important insight into society-wide trends. Though the experiments in this paper focus on sentiment classification, we believe our results provide a basis for future work on character-level modelling for a variety of other NLP tasks.
-
-
-\subsubsection*{References}
+In this paper, we show promising empirical evidence that character-level models perform well for sentiment analysis on tweets, which are ``noisy'', in that users think of millions of new words and spellings of words every day, and ``brief'', in that they are constrained to $140$ characters. This type of text data is becoming an important research focus in the field of NLP, as data is often cheap to collect in high volume and can provide important insight into society-wide trends. Though the experiments in this paper focus on sentiment classification, we believe our results provide a basis for future work on character-level modeling for a variety of other NLP tasks.
 
 \bibliography{paper}
 \bibliographystyle{plain}
