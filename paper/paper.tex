@@ -162,7 +162,7 @@ Note that while \cite{kalchbrenner2014convolutional} used multiple layers of con
 Recurrent Neural Networks (RNNs) are a class of artificial neural networks used for modeling sequences.
 RNNs are highly flexible in their use of context information as they can learn what part of the input sequence to store to memory and what parts to ignore. They also allow modeling of various regimes of sequence modeling as shown in Figure \ref{fig:rnn}. Please refer to \cite{graves2012supervised} for a comprehensive review of sequence modeling using RNN.
 
-\begin{figure}
+\begin{figure}[t]
 	\centering
 	\includegraphics[width=\textwidth]{figs/rnn.jpeg}
 	\caption{RNNs allow modeling of multiple types of input and output sequences (Source: \cite{karpathy-rnn})}
@@ -175,7 +175,7 @@ They achieve this using special ``memory cell'' units.
 Figure \ref{fig:lstm} shows the architecture of this cell which consists of an input gate, a forget gate, an output gate and a recurring cell state. 
 Refer to \cite{colah} for a gentle introduction to LSTM and to \cite{graves2012supervised} for a more comprehensive review and applications.
 
-\begin{figure}
+\begin{figure}[t]
 	\centering
 	\includegraphics[width=\textwidth]{figs/LSTM.png}
 	\caption{The repeating module of LSTM. $x_t$ is the input as time $t$ and $h_t$ is the output from the LSTM output gate at time $t$. The top horizontal line corresponds to the cell state and the bottom line corresponds to the hidden state (both of which are recurring states).
@@ -201,7 +201,7 @@ For the character input model, the embeddings are always initialized randomly, s
 
 We explored other variants of the model like have single-directional LSTM, having a single layer as opposed to multiple layers, using concatenation instead of averaging after first layer. We also tried an ensemble LSTM which takes both characters and words as separate inputs which are combined at the last stage by concatenation before feeding to the softmax. Unfortunately, none of these models gave good preliminary results and in the experiments we focused on just the model of Figure \ref{fig:mylstm} with either character or words as inputs.
 
-\begin{figure}
+\begin{figure}[t]
 	\centering
 	\includegraphics[width=\textwidth, height=3.6in]{figs/mylstm.pdf}
 	\caption{The bi-directional LSTM model used for Twitter sentiment analysis. Each circular node represents an LSTM cell. The input to the model is the sequence $x$. }
@@ -231,6 +231,8 @@ test  & 177               & 182               & 286            & 886           \
 \end{table}
 
 \subsection{Experiments}
+Implementations are available at: \url{https://github.com/umass-semeval/semeval16}
+
 We compare the performance of character-level models against word-level models. For the former, we compare across character sets (``utf8'' and ``ascii''), parameter initializations (``rnd'' and ``eye''), and embedding dimension sizes ($50$ and $200$). The vocabulary for the ``utf8'' setting consisted of $1949$ characters, and for ``ascii'' consisted of $93$ characters. We initialize model parameters randomly at all levels in the ``rnd'' setting whereas in the ``eye'' setting, we initialize the second-level LSTM cell and gate parameters using the identity matrix.
 
 We compare word-level models under two settings: initializing the word embeddings using random vectors (``word/rnd'') and initialization using ``sentiment-specific'' word embeddings provided in \cite{tang2014learning} (``word/sswe'').
