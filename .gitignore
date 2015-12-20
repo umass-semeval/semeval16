@@ -1,7 +1,7 @@
 *.pyc
-paper/*.aux
-paper/*.log
-paper/*.out
-paper/*.bbl
-paper/*.blg
+*.aux
+*.log
+*.out
+*.bbl
+*.blg
 *~
