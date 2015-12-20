@@ -163,6 +163,29 @@ Refer to \cite{colah} for a gentle introduction to LSTM and to \cite{graves2012s
 
 
 \section{Twitter Sentiment Analysis using LSTM}
+In this section we present LSTM models for sentiment analysis of twitter messages. We explored different architectures of LSTM networks which operate at word-level or character-level input. The basic architecture of the network is shown in Figure \ref{fig:mylstm}.
+We explain the model architecture considering the character input.
+Given a tweet as a sequence of characters $X=\{x_1, \ldots, x_{140}\}$, the task is to predict the sentiment of Tweet as being {\it positive} (1) or {\it negative} (0). Each $x_i$ is a one-hot encoding of either the character or the word. The LSTM models then take this one-hot encoding and convert them into either a {\it character embedding} or a {\it word embedding} depending on whether the input is characters or words. The embeddings can be randomly initialized and learned jointly with other model parameters.
+
+The model consists of a bidirectional LSTM layer over this character input $X$. The hidden layer activations obtained from the forward and backward LSTM layer are averaged at {\it each} character which serves as the input to the {\it second layer} of LSTM. The second layer of LSTM takes as input this sequence of hidden layer outputs from first layer and encodes a representation of the tweet at the last element of the sequence (the hidden layer activation of the last LSTM unit). This output is then fed into a softmax layer which classifies the Tweet as being positive or negative.
+The model is trained using categorical cross-entropy.
+
+Note that it is possible to have multiple levels of granularity in predictions, like positive, ``netural" and negative, or even finer.
+We restrict ourselves to two classes to be able to compare with the state of the art published results \cite{kalchbrenner2014convolutional}.
+
+The same model can be used with either character input data or word input data. Note that when used with word input, it is common to initialize the models with pre-trained word embeddings \cite{mikolov2013distributed}. We explore multiple such initializations in our experiments.
+For the character input model, the embeddings are always initialized randomly, since pre-trained character embeddings are not yet available.
+
+We explored other variants of the model like have single-directional LSTM, having a single layer as opposed to multiple layers, using concatenation instead of averaging after first layer. We also tried an ensemble LSTM which takes both characters and words as separate inputs which are combined at the last stage by concatenation before feeding to the softmax. Unfortunately, none of these models gave good preliminary results and in the experiments we focused on just the model of Figure \ref{fig:mylstm} with either character or words as inputs.
+
+\begin{figure}
+	\centering
+	\includegraphics[width=\textwidth, height=3.6in]{figs/mylstm.pdf}
+	\caption{The bi-directional LSTM model used for Twitter sentiment analysis. Each circular node represents an LSTM cell. The input to the model is the sequence $x$. }
+	\label{fig:mylstm}
+\end{figure}
+
+
 
 
 \section{Experiments}
@@ -182,15 +205,6 @@ Soma             &Cell body (contains cell nucleus) \\
 \end{center}
 \end{table}
 
-This is a figure:
-
-\begin{figure}[h]
-\begin{center}
-%\framebox[4.0in]{$\;$}
-\fbox{\rule[-.5cm]{0cm}{4cm} \rule[-.5cm]{4cm}{0cm}}
-\end{center}
-\caption{Sample figure caption.}
-\end{figure}
 
 \section{Conclusion}
 
