@@ -86,24 +86,52 @@ character-lvl CNN for text classification \cite{zhang2015character}
 
 \section{Model}
 
-\section{Experiments}
-See Table ~\ref{sample-table} for awesome results
+\section{Results}
 
-\begin{table}[h]
-\caption{Sample table title}
-\label{sample-table}
-\begin{center}
-\begin{tabular}{ll}
-\multicolumn{1}{c}{\bf PART}  &\multicolumn{1}{c}{\bf DESCRIPTION}
-\\ \hline \\
-Dendrite         &Input terminal \\
-Axon             &Output terminal \\
-Soma             &Cell body (contains cell nucleus) \\
+\subsection{Datasets}
+We conduct our experiments on two datasets: the latest benchmark dataset for SemEval 2016 and the dataset provided by \cite{go2009twitter}. In the latter dataset, the training set consists of $1.6$ million weakly-supervised tweets collected during $2009$, and the test set is hand-labeled. In the experiments presented below, we first train our models on the Go dataset, then re-train the model parameters on the smaller, fully-supervised SemEval dataset.
+
+\begin{table}[h!]
+\centering
+\caption{Data size and label distribution}
+\label{my-label}
+\begin{tabular}{|lllll|}
+\hline
+      & \multicolumn{2}{l}{Go et. al. (1.6M)} & \multicolumn{2}{l}{SemEval2016} \\
+      & neg               & pos               & neg            & pos            \\
+\hline
+train & 800000            & 800000            & 781            & 2805           \\
+dev   & -                 & -                 & 358            & 766            \\
+test  & 177               & 182               & 286            & 886           \\
+\hline
 \end{tabular}
-\end{center}
 \end{table}
 
-This is a figure:
+\subsection{Experiments}
+We compare the performance of character-level models against word-level models. For the former, we compare across character sets (``utf8'' and ``ascii''), parameter initializations (``rnd'' and ``eye''), and embedding dimension sizes ($50$ and $200$). The vocabulary for the ``utf8'' setting consisted of $1949$ characters, and for ``ascii'' consisted of $93$ characters. We initialize model parameters randomly at all levels in the ``rnd'' setting whereas in the ``eye'' setting, we initialize the second-level LSTM cell and gate parameters using the identity matrix.
+
+For the latter, we compare initializing the word embeddings using random vectors (``word/rnd'') against initialization using the embeddings provided in \cite{tang2014learning} (``word/sswe'').
+
+\begin{table}[h!]
+\centering
+\caption{Accuracy across LSTMs}
+\label{char-models}
+\begin{tabular}{|l|ll|}
+\hline
+              & 1.6M (acc)          & semeval (acc) \\
+\hline
+ascii/rnd/50  & \textbf{83.84} & 82.08   \\
+ascii/rnd/200 & 82.45          & \textbf{84.13}   \\
+ascii/eye/50  & 77.44          & 79.18   \\
+utf8          & 81.34          & 82.34   \\
+word/rnd      & 81.85          & 78.07   \\
+word/sswe     & 83.24          & 79.27   \\
+\hline
+\end{tabular}
+\end{table}
+
+\subsection{Analysis}
+
 
 \begin{figure}[h]
 \begin{center}
@@ -121,6 +149,24 @@ This is a figure:
 %\fbox{\rule[-.5cm]{0cm}{4cm} \rule[-.5cm]{4cm}{0cm}}
 \end{center}
 \caption{Sample figure caption.}
+\end{figure}
+
+\begin{figure}[h]
+\begin{center}
+%\framebox[4.0in]{$\;$}
+\includegraphics[width=0.95\textwidth]{figs/cool}
+%\fbox{\rule[-.5cm]{0cm}{4cm} \rule[-.5cm]{4cm}{0cm}}
+\end{center}
+\caption{Sample figure caption.}
+\end{figure}
+
+\begin{figure}[h]
+\begin{center}
+%\framebox[4.0in]{$\;$}
+\includegraphics[width=0.95\textwidth]{figs/dentist}
+%\fbox{\rule[-.5cm]{0cm}{4cm} \rule[-.5cm]{4cm}{0cm}}
+\end{center}
+\caption{Confidence in ``negative'' prediction over time}
 \end{figure}
 
 \section{Conclusion}
