@@ -36,6 +36,7 @@ Jun Wang
 
 \newcommand{\fix}{\marginpar{FIX}}
 \newcommand{\new}{\marginpar{NEW}}
+\newcommand{\todo}[1]{\textcolor{red}{TODO: #1}}
 
 \nipsfinalcopy % Uncomment for camera-ready version
 
@@ -50,54 +51,35 @@ We show promising empirical evidence that character-level LSTMs perform well for
 
 \section{Introduction}
 % why analysis sentiment expecially twitter
-In the last few years, microblogging has become a very popular communication tool in people's social life. Microblogging platforms like Twitter and Facebook allow users to share their opinions on a wide variety of topics. This popularity results in enormous amount of information covering a wide range of topics on various brands, products, politics and social events. 
+Popular microblogging platforms like Twitter and Facebook allow users to share their opinions on a wide variety of topics. This popularity results in enormous amount of information covering a wide range of topics, including brands, products, politics and social events. As a result, sentiment analysis on such microblogging corpora has become an import area of research across the fields of NLP, machine learning, and social science \cite{o2010tweets, bollen2011twitter, bollen2009modeling}.
 
-Sentiment analysis on microblogging corpora has become an import area of research across the fields of NLP, machine learning, and social science research. 
-Sentiment analysis on microblogging has obtained special interest, because it determines the attitude of a user with respect to some topic or product and thus provides convincing information of user's interest or feedback on the topic.
+Leveraging the information contained in microblog data is non-trivial. Twitter, in particular, is a source of high-volume opinion data. On average, users post $6000$ tweets per second and $500$ million tweets per day \footnote{\url{http://www.internetlivestats.com/twitter-statistics/}}. As a result, the Twitter ``lexicon'' is multi-lingual and highly productive, as users post in wide variety of languages and dialects, often using slang and neologisms. This poses an infrastructural challenge with respect to maintaining gazetteers and other static, ``outside knowledge'' resources. In addition, because tweets are constrained to $140$ characters, users make creative use of acronyms, abbreviations, and emoji. This brevity in and of itself poses a challenge for many NLP tasks \cite{mehrotra2013improving}.
 
-For example, it may help a consumer products company get relevant feedback of public opinion on a recent product launch.  
+In this paper, we propose to use bi-directional Long Short-Term Memory (LSTM) \cite{hochreiter1997long} networks which operate at {\it character-level input} to make predictions at the tweet-level. Such networks naturally handle the problem of very large vocabulary sizes and are able to incorporate sub-word level information into predictions. Our results show that character-level models outperform equivalent word-level models.
 
-In this paper, we focus on sentiment analysis on Twitter. 
-Twitter is an extremely popular microblogging platform which allows users to post messages of up to 140 characters.
-Because of the short nature of tweets, people often post twitter messages (called Tweets) frequently while attending events like product launches, movie premiers, music concerts or just to express their opinion on a trending or current topic.
-As such, they can be a valuable source of public opinion or feedback and have received considerable research interest, exemplary work among which are \cite{o2010tweets, bollen2011twitter, bollen2009modeling}.
-Realizing this importance, analyzing sentiment of Tweets has been a recurring task in the SemEval \footnote{\url{http://alt.qcri.org/semeval2016/task4/}} competitions.
-
-%We restrict our interest on Twitter for the following reasons: 
-%People are posting on various topics on Twitter, thus it is a valuable source of data; Twitter is one of the most popular microblogging platform and the number of messages are growing everyday. The collected corpus can be arbitrary large. Users of Twitter have various background and have different language conventions. It is possible to collect tweets of wide diversity in both topics and language models.
-
-Although there exists plenty of work on text classification, some unique characteristics of tweets present special challenges for sentiment analysis:
-1) Tweets are short in length. There is a limitation of $140$ words for each tweet which makes analyzing them challenging \cite{mehrotra2013improving}; 2) The language used in tweets is very informal with misspellings (often intentional, like different spellings of "cool": coool, coolll, coooolll!!), new words, slangs, and URLs;
-3) The number of tweets increases at a very fast pace, and with new data comes new words, new trends in using abbreviations, which lead to a frequent problem of out-of-vocabulary words
-4) Special symbols and their combinations are often used, like emoticons and hashtags.
-
-% what we did
-Keeping in view the challenges posed by the nature of tweets, 
-in this paper, we propose to use bi-directional Long Short-Term Memory (LSTM) \cite{hochreiter1997long} 
-networks which operate at {\it character-level input} and make predictions at the Tweet-level. Such networks naturally handle the problem of very large vocabulary sizes and the presence of sub-word information, without having to keep many trained embedding which would be required for word-level models  with very large vocabularies.
-We find that the character-level model, interestingly, performs {\bf better} than equivalent LSTM model which operates at the word level (even when initialized with a variety of pre-trained embeddings).
+\todo{more on difference between DCNN vs LSTM -- why would we expect LSTM to be better?}
 We also compare our results with Dynamic Convolutional Neural Network (DCNN) \cite{kalchbrenner2014convolutional} which has shown state of the art performance on Twitter sentiment classification \cite{severynunitn}.
-In addition, we also explore the properties of the character LSTM model and find that it learns to find meaning in composition of characters and can effectively relate sub-word information (like presence of period instead of exclamation marks) to the sentiment of the tweet.
 
+In addition, we also explore the properties of the character LSTM model and show that it learns to find meaning in composition of characters and can effectively relate sub-word information (like presence of period instead of exclamation marks) to the sentiment of the tweet.
 
-%We train our model on $1.6$ M distantly-supervised tweets collected by Go et. al. \cite{go2009twitter}, and evaluate the results on SemEval-2016 Task 4. Currently we focus on polarity classification, and plan to apply our model on 5-point scale classification in the future. 
-
-% the structure of the paper
-This paper is laid out as follows: in Section 2, we describe prior work on sentiment classification using deep learning. In Section 3, we describe the structure of our model. In Section 4, we describe the datasets used to train and evaluate our model, as well as results from several experiments. We conclude with an analysis of our results, as well as describe areas of future research.
+The rest of this paper is laid out as follows: in Section 2, we describe prior work on sentiment classification using deep learning. In Section 3, we describe the structure of our model. In Section 4, we describe the datasets used to train and evaluate our model, as well as results from several experiments. We conclude with an analysis of our results, as well as describe areas of future research.
 
 
 \section{Related Work}
 Twitter sentiment analysis is increasingly drawing attention of researchers in recent years. 
 Given the length limitations on tweets, sentiment analysis of tweets is often considered similar to sentence-level sentiment analysis \cite{kouloumpis2011twitter}.
+
 However, phrase and sentence level approaches can hardly define the sentiment of some specific topics. Considering opinions adhering on different topics, Wang et. al. \cite{wang2011topic} proposed a hashtag-level sentiment classification method  to generate the overall sentiment polarity for a given hashtag.
-Recently, following the work of \cite{mikolov2013efficient} some researchers used neural network to implement sentiment classification. 
-For example, Kim \cite{kim2014convolutional} adopted convolutional neural networks to learn sentiment-bearing sentence vectors, Mikolov et al. \cite{mikolov2013distributed} proposed Paragraph vector which outperformed bag-of-words model for sentiment analysis, and Tang et. al. \cite{tang2014learning} used ConvNets to learn sentiment specific word embedding (SSWE), which encodes sentiment information in the continuous
-representation of words.
+
+Recently, following the work of \cite{mikolov2013efficient} some researchers used neural network to implement sentiment classification. For example, Kim \cite{kim2014convolutional} adopted convolutional neural networks to learn sentiment-bearing sentence vectors, Mikolov et al. \cite{mikolov2013distributed} proposed Paragraph vector which outperformed bag-of-words model for sentiment analysis, and Tang et. al. \cite{tang2014learning} used ConvNets to learn sentiment specific word embedding (SSWE), which encodes sentiment information in the continuous representation of words.
+
 Furthermore, Kalchbrenner \cite{kalchbrenner2014convolutional} proposed a Dynamic Convolutional Neural Network (DCNN) which uses dynamic k-max pooling, a global pooling operation over linear sequences.
 Instead of directly applying ConvNets to embeddings of words, very recently \cite{zhang2015character} applied the network only on characters. They showed that the deep ConvNets does not require knowledge of words and thus can work for different languages.
+
 LSTM \cite{hochreiter1997long} is another state-of-the-art semantic composition models for sentiment classification \cite{li2015tree}. Similar to DCNN, it also learns fixed-length vectors for sentences of varying length of word-level input, captures words order in a sentence and does not depend on external dependency or constituency parse results.
 
 Recently, there has been a surge of research interest in exploring character-input models for a variety of natural language processing tasks like: language modeling \cite{kim2015character}, POS tagging \cite{ling2015finding}, dependency parsing \cite{ballesteros2015improved} and machine translation \cite{ling2015character}.
+
 Our exploration is in a similar direction, focused on microblogging data which is naturally morphologically rich, and on using LSTM which are powerful models of sequence data and hence a natural choice for text modeling.
 
 Before explaining the architecture of our character LSTM model, we briefly describe the DCNN architecture and review Long Short Term Memory Networks.
@@ -116,7 +98,9 @@ When used for sentiment classification on Twitter, the input to the DCNN is a ma
 \end{flalign*}
 where each $w_i \in R^k$ is a $k$-dimensional dense word embedding \cite{mikolov2013distributed}.
 The architecture consists of multiple layers of convolutions and max-pooling on top of the input matrix, followed a fully connected layer which is input to a softmax. The convolutions are of type \emph{wide-convolutions} of one-dimension. For example, for the input matrix $S \in R^{k\times s}$, a wide-convolution filter operating on $S$ will consist of convolution weights $m\in R^{k\times c}$ and will result in a matrix having dimension $k \times (s+c-1)$. Note here $c$ is the convolution filter width, which is a hyperparameter.
+
 The max-pooling operations presented in \cite{kalchbrenner2014convolutional} are different from the regular max-pooling. They present {\it dynamic $k$-max pooling}. $k$-max pooling takes the top $k$ maximum activations as opposed to just the maximum activation and the value of $k$ is selected dynamically based on the following formula: $k_l = \max \left( k_{top}, 	\lceil \frac{L-l}{L} s\rceil \right)$, where $l$ is number of current convolution layer, $L$ is total number of convolutions and $k_{top}$ is a fixed hyperparameter. 
+
 Note that while \cite{kalchbrenner2014convolutional} used multiple layers of convolutions and max-pooling, subsequent work found that using a single layer of convolution and max-pooling gives similar results \cite{kim2014convolutional} \cite{severynunitn}.
 
 \begin{figure}
@@ -199,6 +183,12 @@ test  & 177               & 182               & 286            & 886           \
 \end{table}
 
 \subsection{Experiments}
+\todo{verify DCNN results, run on semeval 2016, run using our embeddings?}
+
+\todo{add latest ascii/eye results}
+
+\todo{evaluate using macro-avg F1, not accuracy}
+
 Implementations are available at: \url{https://github.com/umass-semeval/semeval16}
 
 We compare the performance of character-level models against word-level models. For the former, we compare across character sets (``utf8'' and ``ascii''), parameter initializations (``rnd'' and ``eye''), and embedding dimension sizes ($50$ and $200$). The vocabulary for the ``utf8'' setting consisted of $1949$ characters, and for ``ascii'' consisted of $93$ characters. We initialize model parameters randomly at all levels in the ``rnd'' setting whereas in the ``eye'' setting, we initialize the second-level LSTM cell and gate parameters using the identity matrix.
@@ -234,6 +224,9 @@ It is worth noting that the ``utf8'' model performed comparably despite having a
 As Table ~\ref{table:results} shows, \cite{kalchbrenner2014convolutional} outperform our character LSTM on the Go dataset. However, the results presented for our character and word-level models achieve competitive performance on the Go dataset without tuning hyperparameters such as learning rate and network width. 
 
 \subsection{Qualitative Analysis}
+
+\todo{comparison with word-level model results}
+
 Figure ~\ref{fig:cool} shows the effect of character repetition on model confidence over the course of the sequence, where confidence is computed using the softmax function:
 
 $$P(y = j|\mathbf{x}) = \frac{e^{\mathbf{x}^T \mathbf{w}_j}}{\sum_{k=1}^{K} e^{\mathbf{x}^T \mathbf{w}_k}}$$
@@ -275,7 +268,7 @@ Figure ~\ref{fig:dentist} provides further evidence that character-level models 
 \label{fig:dentist}
 \end{figure}
 
-Figure ~\ref{fig:basketball} shows that our model learns the effect of negation.
+Figure ~\ref{fig:basketball} shows that our model learns the effect of negation. \todo{more details}
 
 \begin{figure}[h!]
 \begin{center}
@@ -291,6 +284,7 @@ Figure ~\ref{fig:basketball} shows that our model learns the effect of negation.
 To further analyze whether related spellings or variants of a word are mapped to nearby points in the final encoding, we fed as input individual words (from the dataset vocabulary) to the character input LSTM model and obtained the encoding of the word after the last layer (before the softmax).
 We then find the closest neighbors of every word in the encoding space.
 Table ~\ref{table:word-sim} shows words alongside their top nearest neighbors where closeness is measured by cosine similarity. As desired, orthographic variations of the same word ``type'' are close together in the embedding space. In particular, it is worth noting that "woohoo" with different number of ``o'' are all close. Similarly, the word "sowwy" which is a common way of saying ``sorry" in such informal conversations is also close to the correct word.
+
 
 \begin{table}[h!]
 \begin{center}
