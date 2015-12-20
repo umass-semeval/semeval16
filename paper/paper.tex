@@ -162,6 +162,30 @@ Refer to \cite{colah} for a gentle introduction to LSTM and to \cite{graves2012s
 	\label{fig:lstm}
 \end{figure}
 
+\section{Twitter Sentiment Analysis using LSTM}
+In this section we present LSTM models for sentiment analysis of twitter messages. We explored different architectures of LSTM networks which operate at word-level or character-level input. The basic architecture of the network is shown in Figure \ref{fig:mylstm}.
+We explain the model architecture considering the character input.
+Given a tweet as a sequence of characters $X=\{x_1, \ldots, x_{140}\}$, the task is to predict the sentiment of Tweet as being {\it positive} (1) or {\it negative} (0). Each $x_i$ is a one-hot encoding of either the character or the word. The LSTM models then take this one-hot encoding and convert them into either a {\it character embedding} or a {\it word embedding} depending on whether the input is characters or words. The embeddings can be randomly initialized and learned jointly with other model parameters.
+
+The model consists of a bidirectional LSTM layer over this character input $X$. The hidden layer activations obtained from the forward and backward LSTM layer are averaged at {\it each} character which serves as the input to the {\it second layer} of LSTM. The second layer of LSTM takes as input this sequence of hidden layer outputs from first layer and encodes a representation of the tweet at the last element of the sequence (the hidden layer activation of the last LSTM unit). This output is then fed into a softmax layer which classifies the Tweet as being positive or negative.
+The model is trained using categorical cross-entropy.
+
+Note that it is possible to have multiple levels of granularity in predictions, like positive, ``netural" and negative, or even finer.
+We restrict ourselves to two classes to be able to compare with the state of the art published results \cite{kalchbrenner2014convolutional}.
+
+The same model can be used with either character input data or word input data. Note that when used with word input, it is common to initialize the models with pre-trained word embeddings \cite{mikolov2013distributed}. We explore multiple such initializations in our experiments.
+For the character input model, the embeddings are always initialized randomly, since pre-trained character embeddings are not yet available.
+
+We explored other variants of the model like have single-directional LSTM, having a single layer as opposed to multiple layers, using concatenation instead of averaging after first layer. We also tried an ensemble LSTM which takes both characters and words as separate inputs which are combined at the last stage by concatenation before feeding to the softmax. Unfortunately, none of these models gave good preliminary results and in the experiments we focused on just the model of Figure \ref{fig:mylstm} with either character or words as inputs.
+
+\begin{figure}
+	\centering
+	\includegraphics[width=\textwidth, height=3.6in]{figs/mylstm.pdf}
+	\caption{The bi-directional LSTM model used for Twitter sentiment analysis. Each circular node represents an LSTM cell. The input to the model is the sequence $x$. }
+	\label{fig:mylstm}
+\end{figure}
+
+
 \section{Results}
 
 \subsection{Datasets}
@@ -258,6 +282,29 @@ Figure ~\ref{fig:dentist} provides further evidence that character-level models 
 \caption{Confidence in ``negative'' prediction over time across four tweets}
 \label{fig:dentist}
 \end{figure}
+
+Table ~\ref{table:word-sim} shows words alongside their nearest neighbors computed using the character embeddings learned by our model. As desired, othographic variations of the same word ``type'' are close together in the embedding space. 
+
+\begin{table}[h!]
+\begin{center}
+\begin{tabular}{|l|l|}
+\hline
+woohoo &    wooohoo woohooo wooohooo woohoooo wooooo whoooo woooo whoohoo \\
+wohooo
+woww &   wowww wow whack vwv waw vry cow werk woke \\
+xoxo &    xox xoxox zoo xxoo vox xoxoxo zoe xxo twix \\
+thanks &    thankss thanku yanks thankx hanks thankz thanksss tanks thanx \\
+sorry &    sorrry srry scary sowwy sorryyy scared sory scarred errrr \\
+sucks &   sucky suckss yucky eurgh ouchy suckish fucks ouchh jerks \\
+twitter &    twiter twiiter tinytwitter twitterr quicker txting \\
+granddaughter & ktbeeper twitting \\
+tweet  &  tweeet tweep tweety tweets textt theee seee outer peace \\
+\hline
+\end{tabular}
+\end{center}
+\caption{Words and their nearest neighbors}
+\label{table:word-sim}
+\end{table}
 
 \section{Conclusion}
 In this paper, we show promising empirical evidence that character-level models perform well for sentiment analysis on tweets, which are ``noisy'', in that users think of millions of new words and spellings of words every day, and ``brief'', in that they are constrained to $140$ characters. This type of text data is becoming an important research focus in the field of NLP, as data is often cheap to collect in high volume and can provide important insight into society-wide trends. Though the experiments in this paper focus on sentiment classification, we believe our results provide a basis for future work on character-level modeling for a variety of other NLP tasks.
