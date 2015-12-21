@@ -205,7 +205,9 @@ We compare the performance of character-level models against word-level models. 
 
 We compare word-level models under two settings: initializing the word embeddings using random vectors (``word/rnd'') and initialization using ``sentiment-specific'' word embeddings provided in \cite{tang2014learning} (``word/sswe'').
 
-Our results are shown in Table ~\ref{table:results}. We train all models using the implementation of the Adam algorithm \cite{kingma2014adam} provided in Lasagne\footnote{\url{https://github.com/Lasagne/Lasagne}} and a learning rate set to $0.1$ \footnote{We retrained the ascii/rnd/200 on SemEval using AdaGrad and a learning rate of $0.01$ to achieve $84.13$; using Adam and $0.1$ learning rate, the result was $83.21$}. To learn word and character embeddings, we use a bidirectional LSTM with $256$ hidden units, followed by a mean pooling and a dropout layer ($p=0.5$), a second forward-directional LSTM (again with $256$ hidden units) and a final dropout layer ($p=0.6$). We obtain final predictions using the softmax function.
+Our results are shown in Table ~\ref{table:results}. 
+We train all models using the implementation of the Adam algorithm \cite{kingma2014adam} provided in Lasagne\footnote{\url{https://github.com/Lasagne/Lasagne}} and a learning rate set to $0.1$ \footnote{We retrained the ascii/rnd/200 on SemEval using AdaGrad and a learning rate of $0.01$ to achieve $84.13$; using Adam and $0.1$ learning rate, the result was $83.21$}. To learn word and character embeddings, we use a bidirectional LSTM with $256$ hidden units, followed by a mean pooling and a dropout layer ($p=0.5$), a second forward-directional LSTM (again with $256$ hidden units) and a final dropout layer ($p=0.6$). We obtain final predictions using the softmax function.
+
 
 \begin{table}[h!]
 \centering
@@ -231,7 +233,7 @@ The character-level models using the ``ascii'' character set outperformed the ot
 
 It is worth noting that the ``utf8'' model performed comparably despite having a much larger vocabulary size. It is not suprising that the ``utf8'' model performed worse than the ``ascii'' model, as the test data consisted of only English tweets; however, since the ``utf8'' model is implicitly multi-lingual, our results suggest that the same model may perform well across multiple languages. We leave such experiments for future work.
 
-As Table ~\ref{table:results} shows, \cite{kalchbrenner2014convolutional} outperform our character LSTM on the Go dataset. However, the results presented for our character and word-level models achieve competitive performance on the Go dataset without tuning hyperparameters such as learning rate and network width. 
+As Table ~\ref{table:results} shows, word/dcnn \cite{kalchbrenner2014convolutional} outperform our character LSTM on the Go dataset. Note that this is the published result. The results presented for our character and word-level models achieve competitive performance on the Go dataset without tuning hyperparameters such as size of embeddings, number of hidden units and learning rate. We expect the results to improve after a thorough tuning of these parameters.
 
 \subsection{Qualitative Analysis}
 Figure ~\ref{fig:cool} shows the effect of character repetition on model confidence over the course of the sequence, where confidence is computed using the softmax function:
@@ -288,7 +290,7 @@ Figure ~\ref{fig:basketball} shows that our model learns the effect of negation.
 \end{figure}
 
 
-Table ~\ref{table:word-sim} shows that related spellings or variants of a word are mapped to nearby points in the final encoding. The word encodings are obtained by feeding as input individual words (from the dataset vocabulary) to the character input LSTM model and obtaining the encoding of the words at the last layer (before the softmax).
+Table x`~\ref{table:word-sim} shows that related spellings or variants of a word are mapped to nearby points in the final encoding. The word encodings are obtained by feeding as input individual words (from the dataset vocabulary) to the character input LSTM model and obtaining the encoding of the words at the last layer (before the softmax).
 We then find the closest neighbors of every word in this encoding space, where closeness is measured by cosine similarity. As desired, orthographic variations of the same word ``type'' are close together in the encoding space. In particular, it is worth noting that "woohoo" with different number of ``o'' are all close. Similarly, the word "sowwy" which is a common way of saying ``sorry" in such informal conversations is also close to the correct word.
 
 \begin{table}[h!]
@@ -314,6 +316,8 @@ tweet  &  tweeet tweep tweety tweets textt theee seee outer peace \\
 
 \section{Conclusion}
 In this paper, we show promising empirical evidence that character-level models perform well for sentiment analysis on tweets, which are ``noisy'', in that users think of millions of new words and spellings of words every day, and ``brief'', in that they are constrained to $140$ characters. This type of text data is becoming an important research focus in the field of NLP, as data is often cheap to collect in high volume and can provide important insight into society-wide trends. Though the experiments in this paper focus on sentiment classification, we believe our results provide a basis for future work on character-level modeling for a variety of other NLP tasks.
+
+Future work will explore other variants on the architecture presented in this paper, for example having explicit representation of words at the higher layers composed from the character encodings of the lower layer, inspired by the results of \cite{ling2015finding}. Empirical evidence, as well as intuition, suggests that the character-level models need to be {\it deep} in order to get reasonable performance. In this work we experimented with a two layer model and would like to try deeper models where Highway networks \cite{srivastava2015training} like connections between layers could help training. Another direction of research to get better sentiment analysis results could be to explore the addition of additional engineered features into the models.
 
 \bibliography{paper}
 \bibliographystyle{plain}
